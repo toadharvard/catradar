@@ -1,18 +1,26 @@
 import taichi as ti
-import numpy as np
 
 ti.init(arch=ti.gpu)
 
 # Parameters
+# Simulation
 X, Y = 1000.0, 1000.0  # Size of the map
-N = 50000  # Number of circles
+N = 1000  # Number of circles
 R0 = 5.0  # Intersection radius threshold
 R1 = 20.0  # Interaction radius threshold (R1 > R0)
-tau = 0.01  # Time interval for updating states
-dt = 0.001  # Time step for simulation
-num_substeps = int(tau / dt)  # Number of substeps before updating states
+LIMIT_PER_CELL = 250
 
-grid_cell_size = R1  # Size of each grid cell
+# Time interval for updating states
+tau = 0.01
+# Time step for simulation
+dt = 0.01
+assert dt <= tau
+# Number of substeps before updating states
+num_substeps = int(tau / dt)
+
+
+# Size of each grid cell
+grid_cell_size = R1
 grid_resolution_x = int(X / grid_cell_size) + 1
 grid_resolution_y = int(Y / grid_cell_size) + 1
 
@@ -33,16 +41,15 @@ grid_circles = ti.field(dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_
 # For interaction with UI
 positions_to_draw = ti.Vector.field(2, dtype=ti.f32, shape=N)
 states_to_draw = ti.field(dtype=ti.i32, shape=N)
+colors_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
 
 
 # Random initialization of positions and velocities
 @ti.kernel
 def initialize():
     for i in range(N):
-        positions[i] = ti.Vector([ti.random() * X, ti.random() * Y])
-        angle = ti.random() * 2 * 3.1415926
-        speed = ti.random() * 50 + 50  # Random speed between 50 and 100
-        velocities[i] = ti.Vector([ti.cos(angle), ti.sin(angle)]) * speed
+        positions[i] = ti.Vector([50 + ti.random() * 10, 50 + ti.random()])
+        velocities[i] = ti.Vector([10 + ti.random(), 10 + ti.random()]) * 10
         states[i] = STATE_MOVING
 
 
@@ -50,7 +57,6 @@ def initialize():
 @ti.kernel
 def update_positions():
     for i in range(N):
-        velocities[i] += ti.Vector([0.0, 0.0]) * dt  # No external forces
         positions[i] += velocities[i] * dt
         # Boundary conditions
         if positions[i].x < 0:
@@ -70,9 +76,7 @@ def update_positions():
 # Second module: Reads positions and computes states
 @ti.kernel
 def compute_states():
-    # Clear grid
-    for i, j in grid_num_circles:
-        grid_num_circles[i, j] = 0
+    grid_num_circles.fill(0)
 
     # Insert circles into grid
     for idx in range(N):
@@ -80,7 +84,7 @@ def compute_states():
         gx = int(pos.x / grid_cell_size)
         gy = int(pos.y / grid_cell_size)
         num = ti.atomic_add(grid_num_circles[gx, gy], 1)
-        if num < 100:
+        if num < LIMIT_PER_CELL:
             grid_circles[gx, gy, num] = idx
 
     # Update states
@@ -116,46 +120,39 @@ def compute_states():
         states[idx] = state
 
 
-# Function to copy positions and states to fields used by UI
-@ti.kernel
-def copy_to_draw():
-    for i in range(N):
-        positions_to_draw[i] = positions[i]
-        states_to_draw[i] = states[i]
-
-
 # UI module: Draws circles with different colors based on state
-def draw(gui):
-    positions_np = positions_to_draw.to_numpy()
-    positions_norm = positions_np / np.array([X, Y])
-    state_np = states_to_draw.to_numpy()
-    palette = [0x0000FF, 0x00FF00, 0xFF0000]  # Blue, Green, Red
-    palette_indices = np.zeros(N, dtype=np.int32)
-    palette_indices[state_np == STATE_MOVING] = 0
-    palette_indices[state_np == STATE_INTERACT] = 1
-    palette_indices[state_np == STATE_INTERSECTION] = 2
-    radius = 2  # Radius in pixels
-    gui.circles(
-        positions_norm, radius=radius, palette=palette, palette_indices=palette_indices
-    )
+@ti.kernel
+def update_color_and_positions():
+    for i in range(N):
+        positions_to_draw[i] = positions[i] / ti.Vector([X, Y])
+        if states[i] == STATE_MOVING:
+            colors_to_draw[i] = ti.Vector([0.0, 0.0, 1.0])
+        elif states[i] == STATE_INTERACT:
+            colors_to_draw[i] = ti.Vector([0.0, 1.0, 0.0])
+        elif states[i] == STATE_INTERSECTION:
+            colors_to_draw[i] = ti.Vector([1.0, 0.0, 0.0])
+
+
+def draw(canvas: ti.ui.Canvas):
+    update_color_and_positions()
+    canvas.circles(positions_to_draw, radius=R0 / X, per_vertex_color=colors_to_draw)
 
 
 # Main simulation loop
 def main():
     initialize()
-    gui = ti.GUI("Circle Simulation", res=(800, 800))
-    gui.fps_limit = 200
+    window = ti.ui.Window("Circles", res=(1000, 1000), fps_limit=60, vsync=True)
+    canvas = window.get_canvas()
     accumulated_time = 0.0
-    while gui.running:
+    while window.running:
         for _ in range(num_substeps):
             update_positions()
             accumulated_time += dt
             if accumulated_time >= tau:
                 compute_states()
                 accumulated_time = 0.0
-        copy_to_draw()
-        draw(gui)
-        gui.show()
+        draw(canvas)
+        window.show()
 
 
 if __name__ == "__main__":
