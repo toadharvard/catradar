@@ -36,7 +36,9 @@ states = ti.field(dtype=ti.i32, shape=N)
 
 # Grid data structures for collision detection
 grid_num_circles = ti.field(dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_y))
-grid_circles = ti.field(dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_y, 100))
+grid_circles = ti.field(
+    dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_y, LIMIT_PER_CELL)
+)
 
 # For interaction with UI
 positions_to_draw = ti.Vector.field(2, dtype=ti.f32, shape=N)
