@@ -1,5 +1,3 @@
-import taichi as ti
-
 # Parameters
 # Simulation
 X, Y = 1000.0, 1000.0  # Size of the map
@@ -21,7 +19,3 @@ num_substeps = int(tau / dt)
 STATE_MOVING = 0
 STATE_INTERACT = 1
 STATE_INTERSECTION = 2
-
-# Shared memory - positions of circles
-positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
-states = ti.field(dtype=ti.i32, shape=N)

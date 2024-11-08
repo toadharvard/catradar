@@ -1,5 +1,14 @@
 import taichi as ti
-from catradar.common import *
+
+from catradar.common import (
+    N,
+    R0,
+    STATE_INTERACT,
+    STATE_INTERSECTION,
+    STATE_MOVING,
+    X,
+    Y,
+)
 
 # For interaction with UI
 positions_to_draw = ti.Vector.field(2, dtype=ti.f32, shape=N)
@@ -9,7 +18,7 @@ colors_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
 
 # UI module: Draws circles with different colors based on state
 @ti.kernel
-def update_color_and_positions():
+def update_color_and_positions(positions: ti.template(), states: ti.template()):
     for i in range(N):
         positions_to_draw[i] = positions[i] / ti.Vector([X, Y])
         if states[i] == STATE_MOVING:
@@ -20,6 +29,6 @@ def update_color_and_positions():
             colors_to_draw[i] = ti.Vector([1.0, 0.0, 0.0])
 
 
-def draw(canvas: ti.ui.Canvas):
-    update_color_and_positions()
+def draw(canvas: ti.ui.Canvas, positions, states):
+    update_color_and_positions(positions, states)
     canvas.circles(positions_to_draw, radius=R0 / X, per_vertex_color=colors_to_draw)

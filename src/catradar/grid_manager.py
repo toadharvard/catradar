@@ -1,6 +1,16 @@
 import taichi as ti
-from catradar.common import *
 
+from catradar.common import (
+    N,
+    R0,
+    R1,
+    STATE_INTERACT,
+    STATE_INTERSECTION,
+    STATE_MOVING,
+    X,
+    Y,
+    LIMIT_PER_CELL,
+)
 
 # Size of each grid cell
 grid_cell_size = R1
@@ -14,9 +24,24 @@ grid_circles = ti.field(
 )
 
 
+def initialize_grid(R1: float, X: float, Y: float):
+    global grid_cell_size, grid_resolution_x, grid_resolution_y
+    global grid_num_circles, grid_circles
+
+    grid_cell_size = R1
+    grid_resolution_x = int(X / grid_cell_size) + 1
+    grid_resolution_y = int(Y / grid_cell_size) + 1
+    grid_num_circles = ti.field(
+        dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_y)
+    )
+    grid_circles = ti.field(
+        dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_y, LIMIT_PER_CELL)
+    )
+
+
 # Second module: Reads positions and computes states
 @ti.kernel
-def compute_states():
+def compute_states(positions: ti.template(), states: ti.template()):
     grid_num_circles.fill(0)
 
     # Insert circles into grid
