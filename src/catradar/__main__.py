@@ -1,10 +1,12 @@
 import taichi as ti
+import numpy as np
 
 ti.init(arch=ti.gpu)
 
 # Parameters
 # Simulation
 X, Y = 1000.0, 1000.0  # Size of the map
+RES_X, RES_Y = 1000, 1000
 N = 1000  # Number of circles
 R0 = 5.0  # Intersection radius threshold
 R1 = 20.0  # Interaction radius threshold (R1 > R0)
@@ -137,7 +139,8 @@ def update_color_and_positions(
     positions_to_draw: ti.template(),
 ):
     for i in range(N):
-        positions_to_draw[i] = positions[i] / ti.Vector([X, Y])
+        fixed = positions[i] / ti.Vector([RES_X, RES_Y])
+        positions_to_draw[i] = ti.Vector([fixed[0], fixed[1], 0])
         if states[i] == STATE_MOVING:
             colors_to_draw[i] = ti.Vector([0.0, 0.0, 1.0])
         elif states[i] == STATE_INTERACT:
@@ -147,14 +150,16 @@ def update_color_and_positions(
 
 
 def draw(
-    canvas: ti.ui.Canvas,
+    canvas: ti.ui.Scene,
     positions: ti.template(),
     states: ti.template(),
     positions_to_draw: ti.template(),
     colors_to_draw: ti.template(),
 ):
     update_color_and_positions(positions, states, colors_to_draw, positions_to_draw)
-    canvas.circles(positions_to_draw, radius=R0 / X, per_vertex_color=colors_to_draw)
+    canvas.particles(
+        positions_to_draw, radius=R0 / 2 / RES_X, per_vertex_color=colors_to_draw
+    )
 
 
 opt = 0
@@ -180,10 +185,10 @@ def draw_ui(gui: ti.ui.Gui):
             "R1", current_settings["R1"], 10.0, 50.0
         )
         current_settings["LIMIT_PER_CELL"] = w.slider_int(
-            "LIMIT_PER_CELL", current_settings["LIMIT_PER_CELL"], 100, 500
+            "LIMIT_PER_CELL", current_settings["LIMIT_PER_CELL"], 100, 2000
         )
         current_settings["tau"] = w.slider_float(
-            "tau", current_settings["tau"], 0.005, 0.1
+            "tau", current_settings["tau"], 0.001, 0.1
         )
         current_settings["opt"] = w.slider_int("opt", current_settings["opt"], 0, 1)
         if w.button("Reset"):
@@ -239,24 +244,73 @@ def reset(
 
     global positions_to_draw, states_to_draw, colors_to_draw
     # For interaction with UI
-    positions_to_draw = ti.Vector.field(2, dtype=ti.f32, shape=N)
+    positions_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
     states_to_draw = ti.field(dtype=ti.i32, shape=N)
     colors_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
 
 
-# Main simulation loop
 def main():
-    window = ti.ui.Window("Circles", res=(1000, 1000), fps_limit=60, vsync=True)
+    window = ti.ui.Window("Circles", res=(RES_X, RES_Y), fps_limit=60, vsync=True)
     canvas = window.get_canvas()
+    scene = window.get_scene()
+    camera = ti.ui.make_camera()
+
+    # Изначальная позиция камеры
+    camera_pos = np.array([0.5, 0.5, 2.0])
+    # Камера изначально "смотрит" по оси Z
+    camera_dir = np.array([0.0, 0.0, -1.0])
+    # Вектор "вверх"
+    up_vector = np.array([0.0, 1.0, 0.0])
+    speed = 0.02  # Скорость перемещения камеры
+
+    scene.ambient_light((1, 1, 1))
+
     gui = window.get_gui()
     accumulated_time = 0.0
     reset()
     initialize(
         positions,
         velocities,
-        0,
+        1,
     )
+
     while window.running:
+        # Вычисляем "правый" вектор как векторное произведение
+        right_vector = np.cross(up_vector, camera_dir)
+        right_vector = right_vector / np.linalg.norm(right_vector)  # Нормализуем вектор
+
+        # Считываем ввод с клавиатуры
+        if window.is_pressed("q"):
+            # Перемещаем камеру вперед
+            camera_pos += camera_dir * speed
+        if window.is_pressed("e"):
+            # Перемещаем камеру назад
+            camera_pos -= camera_dir * speed
+
+        if window.is_pressed("a"):
+            # Перемещаем камеру влево
+            camera_pos += right_vector * speed
+        if window.is_pressed("d"):
+            # Перемещаем камеру вправо
+            camera_pos -= right_vector * speed
+
+        if window.is_pressed("w"):
+            # Перемещаем камеру вверх
+            camera_pos += up_vector * speed
+        if window.is_pressed("s"):
+            # Перемещаем камеру вниз
+            camera_pos -= up_vector * speed
+
+        # Устанавливаем новую позицию камеры
+        camera.position(camera_pos[0], camera_pos[1], max(camera_pos[2], 0.2))
+        camera.lookat(
+            camera_pos[0] + camera_dir[0],
+            camera_pos[1] + camera_dir[1],
+            camera_pos[2] + camera_dir[2],
+        )
+        camera.up(up_vector[0], up_vector[1], up_vector[2])
+        scene.set_camera(camera)
+
         for _ in range(num_substeps):
             update_positions(positions, velocities)
             accumulated_time += dt
@@ -268,9 +322,10 @@ def main():
                     grid_circles,
                 )
                 accumulated_time = 0.0
-        draw(canvas, positions, states, positions_to_draw, colors_to_draw)
-        draw_ui(gui)
-        window.show()
+            draw(scene, positions, states, positions_to_draw, colors_to_draw)
+            draw_ui(gui)
+            canvas.scene(scene)
+            window.show()
 
 
 if __name__ == "__main__":
