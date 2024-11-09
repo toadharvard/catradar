@@ -1,3 +1,4 @@
+import time
 import taichi as ti
 import numpy as np
 
@@ -182,7 +183,7 @@ def update_color_and_positions(
     colors_to_draw: ti.template(),
     positions_to_draw: ti.template(),
 ):
-    for i in range(N):
+    for i in range(int(N * render_rate / 100)):
         fixed = positions[i] / ti.Vector([RES_X, RES_Y])
         positions_to_draw[i] = ti.Vector([fixed[0], fixed[1], 0])
         if states[i] == STATE_IDLE:
@@ -200,13 +201,26 @@ def draw(
     positions_to_draw: ti.template(),
     colors_to_draw: ti.template(),
 ):
-    update_color_and_positions(positions, states, colors_to_draw, positions_to_draw)
-    canvas.particles(
-        positions_to_draw, radius=R0 / 2 / RES_X, per_vertex_color=colors_to_draw
+    if render_rate == 0:  # Do not render at all
+        return
+    trace(
+        lambda: update_color_and_positions(
+            positions, states, colors_to_draw, positions_to_draw
+        ),
+        "update_color_and_positions",
+    )
+    trace(
+        lambda: canvas.particles(
+            positions_to_draw,
+            radius=R0 / 2 / RES_X,
+            per_vertex_color=colors_to_draw,
+            index_offset=0,
+            index_count=int(N * render_rate / 100),
+        ),
+        "draw particles",
     )
 
 
-initial_opt = 0
 reset_settings = {
     "X": X,
     "Y": Y,
@@ -216,9 +230,12 @@ reset_settings = {
     "LIMIT_PER_CELL": LIMIT_PER_CELL,
     "tau": tau,
 }
+initial_opt = 0
+render_rate = 100
 settings = {
     "initial_opt": initial_opt,
     "norm_func": norm_func,
+    "render_rate": render_rate,
 }
 # Сейчас не используется, потому что из taichi scope не получится использовать динамические массивы...
 current_page = 0
@@ -228,11 +245,11 @@ per_page = 50
 def draw_ui(gui: ti.ui.Gui):
     global initial_opt
     global current_page, logged, logs
-    global norm_func
+    global norm_func, render_rate
     with gui.sub_window("Simulation", 0, 0, 0.2, 0.3) as w:
-        reset_settings["X"] = w.slider_float("X", reset_settings["X"], 1000, 5000)
-        reset_settings["Y"] = w.slider_float("Y", reset_settings["Y"], 1000, 5000)
-        reset_settings["N"] = w.slider_int("N", reset_settings["N"], 500, 500_000)
+        reset_settings["X"] = w.slider_float("X", reset_settings["X"], 1000, 10000)
+        reset_settings["Y"] = w.slider_float("Y", reset_settings["Y"], 1000, 10000)
+        reset_settings["N"] = w.slider_int("N", reset_settings["N"], 500, 1_000_000)
         reset_settings["R0"] = w.slider_float("R0", reset_settings["R0"], 1.0, 10.0)
         reset_settings["R1"] = w.slider_float("R1", reset_settings["R1"], 10.0, 50.0)
         reset_settings["LIMIT_PER_CELL"] = w.slider_int(
@@ -244,10 +261,16 @@ def draw_ui(gui: ti.ui.Gui):
             initialize(positions, velocities, initial_opt)
 
     with gui.sub_window("Settings", 0, 0.3, 0.2, 0.2) as w:
+        settings["render_rate"] = w.slider_int(
+            "Render rate", settings["render_rate"], 0, 100
+        )
+        if w.button("Set render rate"):
+            render_rate = settings["render_rate"]
+
         settings["initial_opt"] = w.slider_int(
             "Position preset", settings["initial_opt"], 0, 1
         )
-        if w.button("Set"):
+        if w.button("Set position preset"):
             initial_opt = settings["initial_opt"]
             initialize(positions, velocities, initial_opt)
 
@@ -255,7 +278,7 @@ def draw_ui(gui: ti.ui.Gui):
         settings["norm_func"] = w.slider_int(
             "Distance preset", settings["norm_func"], 0, 2
         )
-        if w.button("Set"):
+        if w.button("Set distance preset"):
             norm_func = settings["norm_func"]
     with gui.sub_window("Logs", 0.6, 0.7, 0.4, 0.3) as w:
         if w.button("Clear"):
@@ -338,6 +361,13 @@ def collect_logs():
     )
 
 
+def trace(f, name):
+    a = time.time()
+    f()
+    b = time.time()
+    print(name, b - a)
+
+
 def main():
     window = ti.ui.Window("Circles", res=(RES_X, RES_Y), fps_limit=60, vsync=True)
     canvas = window.get_canvas()
@@ -350,6 +380,9 @@ def main():
     camera_dir = np.array([0.0, 0.0, -1.0])
     # Вектор "вверх"
     up_vector = np.array([0.0, 1.0, 0.0])
+    right_vector = np.cross(up_vector, camera_dir)
+    right_vector = right_vector / np.linalg.norm(right_vector)
+
     speed = 0.02  # Скорость перемещения камеры
 
     scene.ambient_light((1, 1, 1))
@@ -360,13 +393,10 @@ def main():
     initialize(
         positions,
         velocities,
-        1,
+        initial_opt,
     )
 
     while window.running:
-        right_vector = np.cross(up_vector, camera_dir)
-        right_vector = right_vector / np.linalg.norm(right_vector)
-
         if window.is_pressed("q"):
             # Перемещаем камеру вперед
             camera_pos += camera_dir * speed
@@ -399,22 +429,28 @@ def main():
         scene.set_camera(camera)
 
         for _ in range(num_substeps):
-            update_positions(positions, velocities)
+            trace(lambda: update_positions(positions, velocities), "update_positions")
             accumulated_time += dt
             if accumulated_time >= tau:
-                compute_states(
-                    positions,
-                    states,
-                    grid_num_circles,
-                    grid_circles,
+                trace(
+                    lambda: compute_states(
+                        positions,
+                        states,
+                        grid_num_circles,
+                        grid_circles,
+                    ),
+                    "compute_states",
                 )
-                collect_logs()
+                trace(lambda: collect_logs(), "collect_logs")
                 accumulated_time = 0.0
 
-        draw(scene, positions, states, positions_to_draw, colors_to_draw)
-        draw_ui(gui)
-        canvas.scene(scene)
-        window.show()
+        trace(
+            lambda: draw(scene, positions, states, positions_to_draw, colors_to_draw),
+            "draw",
+        )
+        trace(lambda: draw_ui(gui), "draw_ui")
+        trace(lambda: canvas.scene(scene), "canvas.scene")
+        trace(lambda: window.show(), "window.show")
 
 
 if __name__ == "__main__":
