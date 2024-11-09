@@ -55,7 +55,7 @@ def initialize(positions: ti.template(), velocities: ti.template(), opt: ti.type
     if opt == 1:
         for i in range(N):
             positions[i] = ti.Vector([ti.random() * X, ti.random() * Y])
-            velocities[i] = ti.Vector([ti.random() * 10, ti.random() * 10])
+            velocities[i] = ti.Vector([ti.random() * 100 - 50, ti.random() * 100 - 50])
             states[i] = STATE_MOVING
 
 
@@ -157,6 +157,7 @@ def draw(
     canvas.circles(positions_to_draw, radius=R0 / X, per_vertex_color=colors_to_draw)
 
 
+opt = 0
 current_settings = {
     "X": X,
     "Y": Y,
@@ -165,7 +166,7 @@ current_settings = {
     "R1": R1,
     "LIMIT_PER_CELL": LIMIT_PER_CELL,
     "tau": tau,
-    "opt": 1,
+    "opt": opt,
 }
 
 
@@ -173,7 +174,7 @@ def draw_ui(gui: ti.ui.Gui):
     with gui.sub_window("Parameters", 0.1, 0.1, 0.3, 0.3) as w:
         current_settings["X"] = w.slider_float("X", current_settings["X"], 1000, 5000)
         current_settings["Y"] = w.slider_float("Y", current_settings["Y"], 1000, 5000)
-        current_settings["N"] = w.slider_int("N", current_settings["N"], 500, 50_000)
+        current_settings["N"] = w.slider_int("N", current_settings["N"], 500, 500_000)
         current_settings["R0"] = w.slider_float("R0", current_settings["R0"], 1.0, 10.0)
         current_settings["R1"] = w.slider_float(
             "R1", current_settings["R1"], 10.0, 50.0
@@ -186,8 +187,7 @@ def draw_ui(gui: ti.ui.Gui):
         )
         current_settings["opt"] = w.slider_int("opt", current_settings["opt"], 0, 1)
         if w.button("Reset"):
-            opt = current_settings["opt"]
-            reset(**{"a" + k: v for k, v in current_settings.items() if k != "opt"})
+            reset(**{"a" + k: v for k, v in current_settings.items()})
             initialize(positions, velocities, opt)
 
 
@@ -199,14 +199,15 @@ def reset(
     aR1=20.0,
     aLIMIT_PER_CELL=250,
     atau=0.01,
+    aopt=0,
 ):
-    global X, Y, N, R0, R1, LIMIT_PER_CELL
+    global X, Y, N, R0, R1, LIMIT_PER_CELL, opt
     X, Y = aX, aY
     N = aN
     R0 = aR0
     R1 = aR1
     LIMIT_PER_CELL = aLIMIT_PER_CELL
-
+    opt = aopt
     global tau, dt, num_substeps
     # Time interval for updating states
     tau = atau
@@ -256,10 +257,6 @@ def main():
         0,
     )
     while window.running:
-        if window.get_event(ti.ui.PRESS):
-            if window.event.key == ti.ui.ESCAPE:
-                reset()
-                initialize(positions, velocities)
         for _ in range(num_substeps):
             update_positions(positions, velocities)
             accumulated_time += dt
