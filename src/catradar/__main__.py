@@ -20,16 +20,20 @@ assert dt <= tau
 # Number of substeps before updating states
 num_substeps = int(tau / dt)
 
-
 # Size of each grid cell
 grid_cell_size = R1
 grid_resolution_x = int(X / grid_cell_size) + 1
 grid_resolution_y = int(Y / grid_cell_size) + 1
 
 # States
-STATE_MOVING = 0
+STATE_IDLE = 0
 STATE_INTERACT = 1
 STATE_INTERSECTION = 2
+state_to_str = {
+    STATE_IDLE: "IDLE",
+    STATE_INTERACT: "INTERACT",
+    STATE_INTERSECTION: "INTERSECTION",
+}
 
 # Shared memory - positions of circles
 positions = NotImplemented
@@ -53,12 +57,12 @@ def initialize(positions: ti.template(), velocities: ti.template(), opt: ti.type
         for i in range(N):
             positions[i] = ti.Vector([50 + ti.random() * 10, 50 + ti.random()])
             velocities[i] = ti.Vector([10 + ti.random(), 10 + ti.random()]) * 10
-            states[i] = STATE_MOVING
+            states[i] = STATE_IDLE
     if opt == 1:
         for i in range(N):
             positions[i] = ti.Vector([ti.random() * X, ti.random() * Y])
             velocities[i] = ti.Vector([ti.random() * 100 - 50, ti.random() * 100 - 50])
-            states[i] = STATE_MOVING
+            states[i] = STATE_IDLE
 
 
 # First module: Updates positions and writes to shared memory
@@ -79,6 +83,36 @@ def update_positions(positions: ti.template(), velocities: ti.template()):
         if positions[i].y > Y:
             positions[i].y = Y
             velocities[i].y *= -1
+
+
+logs_prev_state = ti.field(ti.i32, shape=())
+logs_new_state = ti.field(ti.i32, shape=())
+logs_who_chaged_id = ti.field(ti.i32, shape=())
+logged = 0
+logs = []
+
+EUCLIDEAN_NORM = 0
+MANHATTAN_NORM = 1
+MAX_NORM = 2
+norm_func = MAX_NORM
+
+norm_result = ti.field(ti.f32, shape=())
+
+
+@ti.func
+def calc_dist(pos_i, pos_j):
+    norm_result[None] = 0
+
+    if norm_func == EUCLIDEAN_NORM:
+        norm_result[None] = (pos_i - pos_j).norm()
+
+    if norm_func == MANHATTAN_NORM:
+        norm_result[None] = ti.abs(pos_i.x - pos_j.x) + ti.abs(pos_i.y - pos_j.y)
+
+    if norm_func == MAX_NORM:
+        norm_result[None] = ti.max(ti.abs(pos_i.x - pos_j.x), ti.abs(pos_i.y - pos_j.y))
+
+    return norm_result[None]
 
 
 # Second module: Reads positions and computes states
@@ -104,8 +138,12 @@ def compute_states(
         pos_i = positions[idx]
         gx = int(pos_i.x / grid_cell_size)
         gy = int(pos_i.y / grid_cell_size)
-        state = STATE_MOVING
 
+        if logged == idx:
+            logs_who_chaged_id[None] = -1  # Изначально нас никто не менял, поэтому -1
+            logs_prev_state[None] = states[idx]
+
+        state = STATE_IDLE
         for offset_x in range(-1, 2):
             for offset_y in range(-1, 2):
                 ng_x = gx + offset_x
@@ -116,18 +154,24 @@ def compute_states(
                         jdx = grid_circles[ng_x, ng_y, k]
                         if jdx != idx:
                             pos_j = positions[jdx]
-                            dist = (pos_i - pos_j).norm()
+                            dist = calc_dist(pos_i, pos_j)
                             if dist <= R0:
                                 state = STATE_INTERSECTION
+                                if logged == idx:
+                                    logs_who_chaged_id[None] = jdx
                                 break  # Exit early for performance
                             elif dist <= R1:
                                 prob = 1.0 / (dist * dist)
                                 if ti.random() < prob:
                                     state = STATE_INTERACT
+                                    if logged == idx:
+                                        logs_who_chaged_id[None] = jdx
                     if state == STATE_INTERSECTION:
                         break  # Exit early if state is determined
             if state == STATE_INTERSECTION:
                 break
+        if logged == idx:
+            logs_new_state[None] = state
         states[idx] = state
 
 
@@ -141,7 +185,7 @@ def update_color_and_positions(
     for i in range(N):
         fixed = positions[i] / ti.Vector([RES_X, RES_Y])
         positions_to_draw[i] = ti.Vector([fixed[0], fixed[1], 0])
-        if states[i] == STATE_MOVING:
+        if states[i] == STATE_IDLE:
             colors_to_draw[i] = ti.Vector([0.0, 0.0, 1.0])
         elif states[i] == STATE_INTERACT:
             colors_to_draw[i] = ti.Vector([0.0, 1.0, 0.0])
@@ -162,8 +206,8 @@ def draw(
     )
 
 
-opt = 0
-current_settings = {
+initial_opt = 0
+reset_settings = {
     "X": X,
     "Y": Y,
     "N": N,
@@ -171,29 +215,54 @@ current_settings = {
     "R1": R1,
     "LIMIT_PER_CELL": LIMIT_PER_CELL,
     "tau": tau,
-    "opt": opt,
 }
+settings = {
+    "initial_opt": initial_opt,
+    "norm_func": norm_func,
+}
+# Сейчас не используется, потому что из taichi scope не получится использовать динамические массивы...
+current_page = 0
+per_page = 50
 
 
 def draw_ui(gui: ti.ui.Gui):
-    with gui.sub_window("Parameters", 0.1, 0.1, 0.3, 0.3) as w:
-        current_settings["X"] = w.slider_float("X", current_settings["X"], 1000, 5000)
-        current_settings["Y"] = w.slider_float("Y", current_settings["Y"], 1000, 5000)
-        current_settings["N"] = w.slider_int("N", current_settings["N"], 500, 500_000)
-        current_settings["R0"] = w.slider_float("R0", current_settings["R0"], 1.0, 10.0)
-        current_settings["R1"] = w.slider_float(
-            "R1", current_settings["R1"], 10.0, 50.0
+    global initial_opt
+    global current_page, logged, logs
+    global norm_func
+    with gui.sub_window("Simulation", 0, 0, 0.2, 0.3) as w:
+        reset_settings["X"] = w.slider_float("X", reset_settings["X"], 1000, 5000)
+        reset_settings["Y"] = w.slider_float("Y", reset_settings["Y"], 1000, 5000)
+        reset_settings["N"] = w.slider_int("N", reset_settings["N"], 500, 500_000)
+        reset_settings["R0"] = w.slider_float("R0", reset_settings["R0"], 1.0, 10.0)
+        reset_settings["R1"] = w.slider_float("R1", reset_settings["R1"], 10.0, 50.0)
+        reset_settings["LIMIT_PER_CELL"] = w.slider_int(
+            "LIMIT", reset_settings["LIMIT_PER_CELL"], 100, 2000
         )
-        current_settings["LIMIT_PER_CELL"] = w.slider_int(
-            "LIMIT_PER_CELL", current_settings["LIMIT_PER_CELL"], 100, 2000
-        )
-        current_settings["tau"] = w.slider_float(
-            "tau", current_settings["tau"], 0.001, 0.1
-        )
-        current_settings["opt"] = w.slider_int("opt", current_settings["opt"], 0, 1)
+        reset_settings["tau"] = w.slider_float("tau", reset_settings["tau"], 0.001, 0.1)
         if w.button("Reset"):
-            reset(**{"a" + k: v for k, v in current_settings.items()})
-            initialize(positions, velocities, opt)
+            reset(**{"a" + k: v for k, v in reset_settings.items()})
+            initialize(positions, velocities, initial_opt)
+
+    with gui.sub_window("Settings", 0, 0.3, 0.2, 0.2) as w:
+        settings["initial_opt"] = w.slider_int(
+            "Position preset", settings["initial_opt"], 0, 1
+        )
+        if w.button("Set"):
+            initial_opt = settings["initial_opt"]
+            initialize(positions, velocities, initial_opt)
+
+        w.text("0: Euclidean\n1: Manhattan\n2: Max")
+        settings["norm_func"] = w.slider_int(
+            "Distance preset", settings["norm_func"], 0, 2
+        )
+        if w.button("Set"):
+            norm_func = settings["norm_func"]
+    with gui.sub_window("Logs", 0.6, 0.7, 0.4, 0.3) as w:
+        if w.button("Clear"):
+            logs = []
+        logged = w.slider_int("Logged circle index", logged, 0, N - 1)
+        current_page = w.slider_int("Page", current_page, 0, len(logs) // per_page)
+        w.text("\n".join(logs[current_page * per_page : (current_page + 1) * per_page]))
 
 
 def reset(
@@ -204,15 +273,13 @@ def reset(
     aR1=20.0,
     aLIMIT_PER_CELL=250,
     atau=0.01,
-    aopt=0,
 ):
-    global X, Y, N, R0, R1, LIMIT_PER_CELL, opt
+    global X, Y, N, R0, R1, LIMIT_PER_CELL, initial_opt
     X, Y = aX, aY
     N = aN
     R0 = aR0
     R1 = aR1
     LIMIT_PER_CELL = aLIMIT_PER_CELL
-    opt = aopt
     global tau, dt, num_substeps
     # Time interval for updating states
     tau = atau
@@ -249,6 +316,28 @@ def reset(
     colors_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
 
 
+def collect_logs():
+    if logs_new_state[None] == logs_prev_state[None]:
+        return
+    if logs_who_chaged_id[None] == -1:
+        logs.append(
+            "State of {} id changed: {} -> {}".format(
+                logged,
+                state_to_str[logs_prev_state[None]],
+                state_to_str[logs_new_state[None]],
+            )
+        )
+        return
+    logs.append(
+        "State of {} id changed: {} -> {} by {} id".format(
+            logged,
+            state_to_str[logs_prev_state[None]],
+            state_to_str[logs_new_state[None]],
+            logs_who_chaged_id[None],
+        )
+    )
+
+
 def main():
     window = ti.ui.Window("Circles", res=(RES_X, RES_Y), fps_limit=60, vsync=True)
     canvas = window.get_canvas()
@@ -275,11 +364,9 @@ def main():
     )
 
     while window.running:
-        # Вычисляем "правый" вектор как векторное произведение
         right_vector = np.cross(up_vector, camera_dir)
-        right_vector = right_vector / np.linalg.norm(right_vector)  # Нормализуем вектор
+        right_vector = right_vector / np.linalg.norm(right_vector)
 
-        # Считываем ввод с клавиатуры
         if window.is_pressed("q"):
             # Перемещаем камеру вперед
             camera_pos += camera_dir * speed
@@ -321,11 +408,13 @@ def main():
                     grid_num_circles,
                     grid_circles,
                 )
+                collect_logs()
                 accumulated_time = 0.0
-            draw(scene, positions, states, positions_to_draw, colors_to_draw)
-            draw_ui(gui)
-            canvas.scene(scene)
-            window.show()
+
+        draw(scene, positions, states, positions_to_draw, colors_to_draw)
+        draw_ui(gui)
+        canvas.scene(scene)
+        window.show()
 
 
 if __name__ == "__main__":
