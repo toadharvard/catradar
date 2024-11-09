@@ -30,34 +30,38 @@ STATE_INTERACT = 1
 STATE_INTERSECTION = 2
 
 # Shared memory - positions of circles
-positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
-velocities = ti.Vector.field(2, dtype=ti.f32, shape=N)
-states = ti.field(dtype=ti.i32, shape=N)
+positions = NotImplemented
+velocities = NotImplemented
+states = NotImplemented
 
 # Grid data structures for collision detection
-grid_num_circles = ti.field(dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_y))
-grid_circles = ti.field(
-    dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_y, LIMIT_PER_CELL)
-)
+grid_num_circles = NotImplemented
+grid_circles = NotImplemented
 
 # For interaction with UI
-positions_to_draw = ti.Vector.field(2, dtype=ti.f32, shape=N)
-states_to_draw = ti.field(dtype=ti.i32, shape=N)
-colors_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
+positions_to_draw = NotImplemented
+states_to_draw = NotImplemented
+colors_to_draw = NotImplemented
 
 
 # Random initialization of positions and velocities
 @ti.kernel
-def initialize():
-    for i in range(N):
-        positions[i] = ti.Vector([50 + ti.random() * 10, 50 + ti.random()])
-        velocities[i] = ti.Vector([10 + ti.random(), 10 + ti.random()]) * 10
-        states[i] = STATE_MOVING
+def initialize(positions: ti.template(), velocities: ti.template(), opt: ti.types.int8):
+    if opt == 0:
+        for i in range(N):
+            positions[i] = ti.Vector([50 + ti.random() * 10, 50 + ti.random()])
+            velocities[i] = ti.Vector([10 + ti.random(), 10 + ti.random()]) * 10
+            states[i] = STATE_MOVING
+    if opt == 1:
+        for i in range(N):
+            positions[i] = ti.Vector([ti.random() * X, ti.random() * Y])
+            velocities[i] = ti.Vector([ti.random() * 10, ti.random() * 10])
+            states[i] = STATE_MOVING
 
 
 # First module: Updates positions and writes to shared memory
 @ti.kernel
-def update_positions():
+def update_positions(positions: ti.template(), velocities: ti.template()):
     for i in range(N):
         positions[i] += velocities[i] * dt
         # Boundary conditions
@@ -77,7 +81,12 @@ def update_positions():
 
 # Second module: Reads positions and computes states
 @ti.kernel
-def compute_states():
+def compute_states(
+    positions: ti.template(),
+    states: ti.template(),
+    grid_num_circles: ti.template(),
+    grid_circles: ti.template(),
+):
     grid_num_circles.fill(0)
 
     # Insert circles into grid
@@ -89,14 +98,12 @@ def compute_states():
         if num < LIMIT_PER_CELL:
             grid_circles[gx, gy, num] = idx
 
-    # Update states
     for idx in range(N):
         pos_i = positions[idx]
         gx = int(pos_i.x / grid_cell_size)
         gy = int(pos_i.y / grid_cell_size)
-        state = STATE_MOVING  # Default state
+        state = STATE_MOVING
 
-        # Check neighboring grid cells
         for offset_x in range(-1, 2):
             for offset_y in range(-1, 2):
                 ng_x = gx + offset_x
@@ -122,9 +129,13 @@ def compute_states():
         states[idx] = state
 
 
-# UI module: Draws circles with different colors based on state
 @ti.kernel
-def update_color_and_positions():
+def update_color_and_positions(
+    positions: ti.template(),
+    states: ti.template(),
+    colors_to_draw: ti.template(),
+    positions_to_draw: ti.template(),
+):
     for i in range(N):
         positions_to_draw[i] = positions[i] / ti.Vector([X, Y])
         if states[i] == STATE_MOVING:
@@ -135,25 +146,133 @@ def update_color_and_positions():
             colors_to_draw[i] = ti.Vector([1.0, 0.0, 0.0])
 
 
-def draw(canvas: ti.ui.Canvas):
-    update_color_and_positions()
+def draw(
+    canvas: ti.ui.Canvas,
+    positions: ti.template(),
+    states: ti.template(),
+    positions_to_draw: ti.template(),
+    colors_to_draw: ti.template(),
+):
+    update_color_and_positions(positions, states, colors_to_draw, positions_to_draw)
     canvas.circles(positions_to_draw, radius=R0 / X, per_vertex_color=colors_to_draw)
+
+
+current_settings = {
+    "X": X,
+    "Y": Y,
+    "N": N,
+    "R0": R0,
+    "R1": R1,
+    "LIMIT_PER_CELL": LIMIT_PER_CELL,
+    "tau": tau,
+    "opt": 1,
+}
+
+
+def draw_ui(gui: ti.ui.Gui):
+    with gui.sub_window("Parameters", 0.1, 0.1, 0.3, 0.3) as w:
+        current_settings["X"] = w.slider_float("X", current_settings["X"], 1000, 5000)
+        current_settings["Y"] = w.slider_float("Y", current_settings["Y"], 1000, 5000)
+        current_settings["N"] = w.slider_int("N", current_settings["N"], 500, 50_000)
+        current_settings["R0"] = w.slider_float("R0", current_settings["R0"], 1.0, 10.0)
+        current_settings["R1"] = w.slider_float(
+            "R1", current_settings["R1"], 10.0, 50.0
+        )
+        current_settings["LIMIT_PER_CELL"] = w.slider_int(
+            "LIMIT_PER_CELL", current_settings["LIMIT_PER_CELL"], 100, 500
+        )
+        current_settings["tau"] = w.slider_float(
+            "tau", current_settings["tau"], 0.005, 0.1
+        )
+        current_settings["opt"] = w.slider_int("opt", current_settings["opt"], 0, 1)
+        if w.button("Reset"):
+            opt = current_settings["opt"]
+            reset(**{"a" + k: v for k, v in current_settings.items() if k != "opt"})
+            initialize(positions, velocities, opt)
+
+
+def reset(
+    aX=1000.0,
+    aY=1000.0,
+    aN=1000,
+    aR0=5.0,
+    aR1=20.0,
+    aLIMIT_PER_CELL=250,
+    atau=0.01,
+):
+    global X, Y, N, R0, R1, LIMIT_PER_CELL
+    X, Y = aX, aY
+    N = aN
+    R0 = aR0
+    R1 = aR1
+    LIMIT_PER_CELL = aLIMIT_PER_CELL
+
+    global tau, dt, num_substeps
+    # Time interval for updating states
+    tau = atau
+    # Time step for simulation
+    dt = atau
+    # Number of substeps before updating states
+    num_substeps = int(tau / dt)
+
+    global grid_cell_size, grid_resolution_x, grid_resolution_y
+    # Size of each grid cell
+    grid_cell_size = R1
+    grid_resolution_x = int(X / grid_cell_size) + 1
+    grid_resolution_y = int(Y / grid_cell_size) + 1
+
+    global positions, velocities, states
+    # Shared memory - positions of circles
+    positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
+    velocities = ti.Vector.field(2, dtype=ti.f32, shape=N)
+    states = ti.field(dtype=ti.i32, shape=N)
+
+    global grid_num_circles, grid_circles
+    # Grid data structures for collision detection
+    grid_num_circles = ti.field(
+        dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_y)
+    )
+    grid_circles = ti.field(
+        dtype=ti.i32, shape=(grid_resolution_x, grid_resolution_y, LIMIT_PER_CELL)
+    )
+
+    global positions_to_draw, states_to_draw, colors_to_draw
+    # For interaction with UI
+    positions_to_draw = ti.Vector.field(2, dtype=ti.f32, shape=N)
+    states_to_draw = ti.field(dtype=ti.i32, shape=N)
+    colors_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
 
 
 # Main simulation loop
 def main():
-    initialize()
     window = ti.ui.Window("Circles", res=(1000, 1000), fps_limit=60, vsync=True)
     canvas = window.get_canvas()
+    gui = window.get_gui()
     accumulated_time = 0.0
+    reset()
+    initialize(
+        positions,
+        velocities,
+        0,
+    )
     while window.running:
+        if window.get_event(ti.ui.PRESS):
+            if window.event.key == ti.ui.ESCAPE:
+                reset()
+                initialize(positions, velocities)
         for _ in range(num_substeps):
-            update_positions()
+            update_positions(positions, velocities)
             accumulated_time += dt
             if accumulated_time >= tau:
-                compute_states()
+                compute_states(
+                    positions,
+                    states,
+                    grid_num_circles,
+                    grid_circles,
+                )
                 accumulated_time = 0.0
-        draw(canvas)
+        draw(canvas, positions, states, positions_to_draw, colors_to_draw)
+        draw_ui(gui)
         window.show()
 
 
