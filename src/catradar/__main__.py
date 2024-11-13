@@ -37,6 +37,11 @@ window_resol_y = 1000
 positions = NotImplemented  # Positions of circles
 states = NotImplemented  # States of circles
 
+# Data structure for first INTERACTION_NUM interactions
+INTERACTION_NUM = 10
+interactions = NotImplemented
+
+
 settings_buffer = {
     "X": X,
     "Y": Y,
@@ -90,9 +95,14 @@ def setup_all_data():
     global positions, states
     positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
     states = ti.field(dtype=ti.i32, shape=N)
+    global interactions
+    interactions = interactions = ti.field(
+        dtype=ti.i32,
+        shape=(N, INTERACTION_NUM + 1),
+    )
 
     setup_positions_data(X, Y, N)
-    setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL)
+    setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERACTION_NUM)
     setup_data_for_canvas(N, R0)
 
 
@@ -169,9 +179,14 @@ def main():
         camera.up(up_vector[0], up_vector[1], up_vector[2])
         scene.set_camera(camera)
 
-        trace(lambda: update_positions(positions, update_opt), "update_positions")
         trace(
-            lambda: compute_states(positions, states, norm_func, logged_id),
+            lambda: update_positions(positions, interactions, update_opt),
+            "update_positions",
+        )
+        trace(
+            lambda: compute_states(
+                positions, states, interactions, norm_func, logged_id
+            ),
             "compute_states",
         )
         trace(lambda: update_logs(logged_id, logs), "collect_logs")

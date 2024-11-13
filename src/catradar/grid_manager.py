@@ -25,6 +25,7 @@ LIMIT_PER_CELL: ti.i32
 grid_cell_size: ti.i32
 cell_count_x = ti.i32
 cell_count_y = ti.i32
+INTERACTION_NUM: ti.i32
 
 # Grid data structures for collision detection
 grid_num_circles = NotImplemented
@@ -38,14 +39,16 @@ def setup_grid_data(
     aR0: ti.f32,
     aR1: ti.f32,
     aLIMIT_PER_CELL: ti.i32,
+    aINTERACTION_NUM: ti.i32,
 ):
-    global X, Y, N, R0, R1, LIMIT_PER_CELL
+    global X, Y, N, R0, R1, LIMIT_PER_CELL, INTERACTION_NUM
     X = aX
     Y = aY
     N = aN
     R0 = aR0
     R1 = aR1
     LIMIT_PER_CELL = aLIMIT_PER_CELL
+    INTERACTION_NUM = aINTERACTION_NUM
 
     global grid_cell_size, cell_count_x, cell_count_y
     grid_cell_size = R1
@@ -85,6 +88,7 @@ logs_who_changed_id = ti.field(ti.i32, shape=())
 def compute_states(
     positions: ti.template(),
     states: ti.template(),
+    interactions: ti.template(),
     norm_func: ti.i32,
     logged_id: ti.i32,
 ):
@@ -105,6 +109,8 @@ def compute_states(
         cell_y = int(pos_i.y / grid_cell_size)
 
         state = STATE_IDLE
+        interact_len = 0
+
         for offset_x in range(-1, 2):
             for offset_y in range(-1, 2):
                 other_cell_x = cell_x + offset_x
@@ -125,22 +131,31 @@ def compute_states(
                                 state = STATE_INTERSECTION
                                 if logged_id == idx:
                                     logs_who_changed_id[None] = jdx
-                                break  # Exit early for performance
+
+                                interactions[idx, interact_len + 1] = jdx
+                                interact_len += 1
+
+                                if interact_len == INTERACTION_NUM:
+                                    break  # Exit early for performance
                             elif dist <= R1:
                                 prob = 1.0 / (dist * dist)
                                 if ti.random() < prob:
                                     state = STATE_INTERACT
                                     if logged_id == idx:
                                         logs_who_changed_id[None] = jdx
+
                     if state == STATE_INTERSECTION:
-                        break  # Exit early if state is determined
+                        if interact_len == INTERACTION_NUM:
+                            break  # Exit early if state is determined
             if state == STATE_INTERSECTION:
-                break
+                if interact_len == INTERACTION_NUM:
+                    break
 
         if logged_id == idx:
             logs_prev_state[None] = states[idx]
             logs_new_state[None] = state
         states[idx] = state
+        interactions[idx, 0] = interact_len
 
 
 def update_logs(logged_id, logs):

@@ -71,7 +71,9 @@ def movement_pattern_2(positions):
 
 
 @ti.kernel
-def update_positions(positions: ti.template(), opt: ti.i32):
+def update_positions(
+    positions: ti.template(), interactions: ti.template(), opt: ti.i32
+):
     if opt == 0:
         movement_pattern_0(positions)
     if opt == 1:
