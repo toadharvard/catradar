@@ -7,6 +7,9 @@ __all__ = ["setup_positions_data", "initialize_positions", "update_positions"]
 p1_speeds = NotImplemented
 p1_angles = NotImplemented
 
+# movement pattern 2 global vars
+p2_resistance = 0.5
+
 velocities = NotImplemented
 
 X: ti.f32
@@ -66,8 +69,19 @@ def movement_pattern_1(positions):
 
 
 @ti.func
-def movement_pattern_2(positions):
-    pass
+def movement_pattern_2(positions, interactions):
+    for i in range(N):
+        self_pos = positions[i]
+        force = -(velocities[i] * p2_resistance)
+
+        interact_len = interactions[i, 0]
+        for j in range(1, interact_len + 1):
+            interact_pos = positions[interactions[i, j]]
+            vec_interact_to_self = self_pos - interact_pos
+            dist = (vec_interact_to_self).norm()
+            force += (vec_interact_to_self / ti.pow(dist, 3)) * 10
+
+        velocities[i] += force
 
 
 @ti.kernel
@@ -79,7 +93,7 @@ def update_positions(
     if opt == 1:
         movement_pattern_1(positions)
     if opt == 2:
-        movement_pattern_2(positions)
+        movement_pattern_2(positions, interactions)
 
     for i in range(N):
         positions[i] += velocities[i]
