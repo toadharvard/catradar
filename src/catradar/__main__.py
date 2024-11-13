@@ -21,6 +21,7 @@ R1: ti.f32 = 20.0
 LIMIT_PER_CELL: ti.i32 = 250
 # Other "soft" parameters
 init_opt: ti.i32 = 0
+update_opt: ti.i32 = 0
 render_rate: ti.i32 = 100
 norm_func: ti.i32 = 0
 
@@ -48,7 +49,7 @@ settings_buffer = {
 
 
 def draw_ui(gui: ti.ui.Gui):
-    global render_rate, init_opt, norm_func
+    global render_rate, init_opt, update_opt, norm_func
     global logged_id, current_page, logs
     with gui.sub_window("Simulation", 0, 0, 0.2, 0.3) as w:
         settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 10000)
@@ -63,7 +64,7 @@ def draw_ui(gui: ti.ui.Gui):
             reset_grid()
             initialize_positions(positions, init_opt)
 
-    with gui.sub_window("Settings", 0, 0.3, 0.2, 0.2) as w:
+    with gui.sub_window("Settings", 0, 0.3, 0.2, 0.25) as w:
         render_rate = w.slider_int("Render rate", render_rate, 0, 100)
         settings_buffer["init_opt"] = w.slider_int(
             "Position preset", settings_buffer["init_opt"], 0, 1
@@ -71,6 +72,8 @@ def draw_ui(gui: ti.ui.Gui):
         if w.button("Set position preset"):
             init_opt = settings_buffer["init_opt"]
             initialize_positions(positions, init_opt)
+        w.text("0: ...\n1: ...\n2: ...")
+        update_opt = w.slider_int("Movement pattern", update_opt, 0, 2)
         w.text("0: Euclidean\n1: Manhattan\n2: Max")
         norm_func = w.slider_int("Distance preset", norm_func, 0, 2)
 
@@ -166,7 +169,7 @@ def main():
         camera.up(up_vector[0], up_vector[1], up_vector[2])
         scene.set_camera(camera)
 
-        trace(lambda: update_positions(positions), "update_positions")
+        trace(lambda: update_positions(positions, update_opt), "update_positions")
         trace(
             lambda: compute_states(positions, states, norm_func, logged_id),
             "compute_states",

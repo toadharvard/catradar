@@ -34,8 +34,8 @@ def initialize_positions(positions: ti.template(), opt: ti.i32):
             )
 
 
-@ti.kernel
-def update_positions(positions: ti.template()):
+@ti.func
+def movement_pattern_1(positions):
     for i in range(N):
         positions[i] += velocities[i]
         # Boundary conditions
@@ -51,3 +51,37 @@ def update_positions(positions: ti.template()):
         if positions[i].y > Y:
             positions[i].y = Y
             velocities[i].y *= -1
+
+
+@ti.func
+def movement_pattern_2(positions):
+    for i in range(N):
+        positions[i] -= velocities[i]
+        # Boundary conditions
+        if positions[i].x < 0:
+            positions[i].x = 0
+            velocities[i].x *= -1
+        if positions[i].x > X:
+            positions[i].x = X
+            velocities[i].x *= -1
+        if positions[i].y < 0:
+            positions[i].y = 0
+            velocities[i].y *= -1
+        if positions[i].y > Y:
+            positions[i].y = Y
+            velocities[i].y *= -1
+
+
+@ti.func
+def movement_pattern_3(positions):
+    pass
+
+
+@ti.kernel
+def update_positions(positions: ti.template(), opt: ti.i32):
+    if opt == 0:
+        movement_pattern_1(positions)
+    if opt == 1:
+        movement_pattern_2(positions)
+    if opt == 2:
+        movement_pattern_3(positions)
