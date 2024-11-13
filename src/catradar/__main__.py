@@ -179,6 +179,26 @@ def main():
         camera.up(up_vector[0], up_vector[1], up_vector[2])
         scene.set_camera(camera)
 
+        cursor_board_pos = ti.math.vec2(-1000, -1000)
+        # cursor info
+        if window.is_pressed(ti.GUI.LMB):
+            ws = window.get_window_shape()
+            cursor_pos = window.get_cursor_pos()
+            zoom = 1.2 / camera_pos[2]
+            # i don't know how but it work
+            cursor_board_pos[0] = (
+                ws[0]
+                / ws[1]
+                * ws[0]
+                * (cursor_pos[0] + (camera_pos[0] * zoom * (ws[1] / ws[0]) - 0.5))
+                / zoom
+            )
+            cursor_board_pos[1] = (
+                ws[1] * (cursor_pos[1] + camera_pos[1] * zoom - 0.5) / zoom
+            )
+
+            # gui.text(f"cursor {cursor_board_pos[0]} {cursor_board_pos[1]}")
+
         trace(
             lambda: update_positions(positions, interactions, update_opt),
             "update_positions",
