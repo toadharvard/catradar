@@ -70,16 +70,16 @@ def movement_pattern_1(positions):
 
 # Colliding
 @ti.func
-def movement_pattern_2(positions, interactions):
+def movement_pattern_2(positions, intesections):
     for i in range(N):
         self_pos = positions[i]
         force = ti.math.vec2(0.0, 0.0)
         if velocities[i].norm() > 1:
             force = -(velocities[i] * p2_resistance)
 
-        interact_len = interactions[i, 0]
-        for j in range(1, interact_len + 1):
-            interact_pos = positions[interactions[i, j]]
+        intersect_len = intesections[i, 0]
+        for j in range(1, intersect_len + 1):
+            interact_pos = positions[intesections[i, j]]
             vec_interact_to_self = self_pos - interact_pos
             dist = (vec_interact_to_self).norm()
             force += (vec_interact_to_self / ti.pow(dist, 3)) * 10
@@ -99,7 +99,7 @@ def cursor_push(positions, cursor_pos):
 @ti.kernel
 def update_positions(
     positions: ti.template(),
-    interactions: ti.template(),
+    intesections: ti.template(),
     cursor_pos: ti.math.vec2,
     cursor_push_on: ti.i8,
     opt: ti.i32,
@@ -109,7 +109,7 @@ def update_positions(
     if opt == 1:
         movement_pattern_1(positions)
     if opt == 2:
-        movement_pattern_2(positions, interactions)
+        movement_pattern_2(positions, intesections)
 
     if cursor_push_on:
         cursor_push(positions, cursor_pos)
