@@ -8,7 +8,7 @@ p1_speeds = NotImplemented
 p1_angles = NotImplemented
 
 # movement pattern 2 global vars
-p2_resistance = 0.5
+p2_resistance = 0.05
 
 velocities = NotImplemented
 
@@ -68,11 +68,14 @@ def movement_pattern_1(positions):
         )
 
 
+# Colliding
 @ti.func
 def movement_pattern_2(positions, interactions):
     for i in range(N):
         self_pos = positions[i]
-        force = -(velocities[i] * p2_resistance)
+        force = ti.math.vec2(0.0, 0.0)
+        if velocities[i].norm() > 1:
+            force = -(velocities[i] * p2_resistance)
 
         interact_len = interactions[i, 0]
         for j in range(1, interact_len + 1):
@@ -84,9 +87,22 @@ def movement_pattern_2(positions, interactions):
         velocities[i] += force
 
 
+@ti.func
+def cursor_push(positions, cursor_pos):
+    for i in range(N):
+        vec_cursor_to_self = positions[i] - cursor_pos
+        cursor_dist = vec_cursor_to_self.norm()
+        if cursor_dist < 100:
+            velocities[i] += (vec_cursor_to_self / ti.pow(cursor_dist, 2)) * 100
+
+
 @ti.kernel
 def update_positions(
-    positions: ti.template(), interactions: ti.template(), opt: ti.i32
+    positions: ti.template(),
+    interactions: ti.template(),
+    cursor_pos: ti.math.vec2,
+    cursor_push_on: ti.i8,
+    opt: ti.i32,
 ):
     if opt == 0:
         movement_pattern_0(positions)
@@ -94,6 +110,9 @@ def update_positions(
         movement_pattern_1(positions)
     if opt == 2:
         movement_pattern_2(positions, interactions)
+
+    if cursor_push_on:
+        cursor_push(positions, cursor_pos)
 
     for i in range(N):
         positions[i] += velocities[i]
