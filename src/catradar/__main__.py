@@ -177,8 +177,8 @@ def main():
             positions,
             states,
             render_rate,
-            window.get_window_shape()[0],
-            window.get_window_shape()[1],
+            window_resol_x,
+            window_resol_y,
         )
         trace(lambda: draw_ui(gui), "draw_ui")
         trace(lambda: canvas.scene(scene), "canvas.scene")
