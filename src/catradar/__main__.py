@@ -72,7 +72,7 @@ def draw_ui(gui: ti.ui.Gui):
         if w.button("Set position preset"):
             init_opt = settings_buffer["init_opt"]
             initialize_positions(positions, init_opt)
-        w.text("0: ...\n1: ...\n2: ...")
+        w.text("0: Free movement\n1: Carousel\n2: ...")
         update_opt = w.slider_int("Movement pattern", update_opt, 0, 2)
         w.text("0: Euclidean\n1: Manhattan\n2: Max")
         norm_func = w.slider_int("Distance preset", norm_func, 0, 2)
