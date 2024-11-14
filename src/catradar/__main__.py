@@ -98,7 +98,7 @@ def setup_all_data():
     positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
     states = ti.field(dtype=ti.i32, shape=N)
     global intesections
-    intesections = intesections = ti.field(
+    intesections = ti.field(
         dtype=ti.i32,
         shape=(N, INTERSECTION_NUM + 1),
     )
