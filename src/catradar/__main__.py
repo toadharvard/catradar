@@ -1,3 +1,4 @@
+import time
 import taichi as ti
 import numpy as np
 
@@ -152,6 +153,8 @@ def main():
     setup_all_data()
     initialize_positions(positions, init_opt)
 
+    prev_update_time = time.time()
+
     while window.running:
         if window.is_pressed("q"):
             # Перемещаем камеру вперед
@@ -203,6 +206,7 @@ def main():
 
             # gui.text(f"cursor {cursor_board_pos[0]} {cursor_board_pos[1]}")
 
+        new_update_time = time.time()
         trace(
             lambda: update_positions(
                 positions,
@@ -211,9 +215,12 @@ def main():
                 cursor_push_on,
                 speed_mult,
                 update_opt,
+                new_update_time - prev_update_time,
             ),
             "update_positions",
         )
+        prev_update_time = new_update_time
+
         trace(
             lambda: compute_states(
                 positions, states, intesections, update_opt == 2, norm_func, logged_id

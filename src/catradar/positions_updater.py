@@ -103,6 +103,7 @@ def update_positions(
     cursor_push_on: ti.i8,
     speed_mult: ti.f32,
     opt: ti.i32,
+    dt: ti.f32,
 ):
     if opt == 0:
         movement_pattern_0(positions)
@@ -115,7 +116,7 @@ def update_positions(
         cursor_push(positions, cursor_pos)
 
     for i in range(N):
-        positions[i] += speed_mult * velocities[i]
+        positions[i] += speed_mult * velocities[i] * dt * 60
         # Boundary conditions
         if positions[i].x < 0:
             positions[i].x = 0
