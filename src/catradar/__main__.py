@@ -187,17 +187,16 @@ def main():
             ws = window.get_window_shape()
             cursor_pos = window.get_cursor_pos()
             zoom = 1.2 / camera_pos[2]
-            # i don't know how but it work
+            # i really don't know how but it work
             cursor_board_pos[0] = (
                 ws[0]
-                / ws[1]
-                * ws[0]
                 * (cursor_pos[0] + (camera_pos[0] * zoom * (ws[1] / ws[0]) - 0.5))
                 / zoom
             )
             cursor_board_pos[1] = (
                 ws[1] * (cursor_pos[1] + camera_pos[1] * zoom - 0.5) / zoom
             )
+            cursor_board_pos *= window_resol_y / ws[1]
 
             # gui.text(f"cursor {cursor_board_pos[0]} {cursor_board_pos[1]}")
 
