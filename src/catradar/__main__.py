@@ -144,8 +144,6 @@ def main():
     right_vector = np.cross(up_vector, camera_dir)
     right_vector = right_vector / np.linalg.norm(right_vector)
 
-    speed = 0.02  # Скорость перемещения камеры
-
     scene.ambient_light((1, 1, 1))
 
     gui = window.get_gui()
@@ -156,6 +154,8 @@ def main():
     prev_update_time = time.time()
 
     while window.running:
+        speed = 0.01 * camera_pos[2]  # Скорость перемещения камеры
+
         if window.is_pressed("q"):
             # Перемещаем камеру вперед
             camera_pos += camera_dir * speed
@@ -176,9 +176,10 @@ def main():
         if window.is_pressed("s"):
             # Перемещаем камеру вниз
             camera_pos -= up_vector * speed
+        camera_pos[2] = max(camera_pos[2], 0.2)
 
         # Устанавливаем новую позицию камеры
-        camera.position(camera_pos[0], camera_pos[1], max(camera_pos[2], 0.2))
+        camera.position(camera_pos[0], camera_pos[1], camera_pos[2])
         camera.lookat(
             camera_pos[0] + camera_dir[0],
             camera_pos[1] + camera_dir[1],
