@@ -53,14 +53,14 @@ def initialize_positions(positions: ti.template(), opt: ti.i32):
 
 
 # Free movement
-@ti.func
-def movement_pattern_0(positions):
+@ti.kernel
+def movement_pattern_0(positions: ti.template()):
     pass
 
 
 # Carousel
-@ti.func
-def movement_pattern_1(positions):
+@ti.kernel
+def movement_pattern_1(positions: ti.template()):
     for i in range(N):
         p1_angles[i] = ti.raw_mod(p1_angles[i] + 0.05, 2 * pi)
         velocities[i][0] = ti.cos(p1_angles[i]) * p1_speeds[i]
@@ -68,8 +68,8 @@ def movement_pattern_1(positions):
 
 
 # Colliding
-@ti.func
-def movement_pattern_2(positions, intesections):
+@ti.kernel
+def movement_pattern_2(positions: ti.template(), intesections: ti.template()):
     for i in range(N):
         self_pos = positions[i]
         force = ti.math.vec2(0.0, 0.0)
@@ -86,8 +86,8 @@ def movement_pattern_2(positions, intesections):
         velocities[i] += force
 
 
-@ti.func
-def cursor_push(positions, cursor_pos):
+@ti.kernel
+def cursor_push(positions: ti.template(), cursor_pos: ti.math.vec2):
     for i in range(N):
         vec_cursor_to_self = positions[i] - cursor_pos
         cursor_dist = vec_cursor_to_self.norm()
@@ -96,9 +96,31 @@ def cursor_push(positions, cursor_pos):
 
 
 @ti.kernel
-def update_positions(
+def update_pos_on_velocity(
     positions: ti.template(),
-    intesections: ti.template(),
+    speed_mult: ti.f32,
+    dt: ti.f32,
+):
+    for i in range(N):
+        positions[i] += speed_mult * velocities[i] * dt * 60
+        # Boundary conditions
+        if positions[i].x < 0:
+            positions[i].x = 0
+            velocities[i].x *= -1
+        if positions[i].x > X:
+            positions[i].x = X
+            velocities[i].x *= -1
+        if positions[i].y < 0:
+            positions[i].y = 0
+            velocities[i].y *= -1
+        if positions[i].y > Y:
+            positions[i].y = Y
+            velocities[i].y *= -1
+
+
+def update_positions(
+    positions,
+    intesections,
     cursor_pos: ti.math.vec2,
     cursor_push_on: ti.i8,
     speed_mult: ti.f32,
@@ -115,18 +137,4 @@ def update_positions(
     if cursor_push_on:
         cursor_push(positions, cursor_pos)
 
-    for i in range(N):
-        positions[i] += speed_mult * velocities[i] * dt * 60
-        # Boundary conditions
-        if positions[i].x < 0:
-            positions[i].x = 0
-            velocities[i].x *= -1
-        if positions[i].x > X:
-            positions[i].x = X
-            velocities[i].x *= -1
-        if positions[i].y < 0:
-            positions[i].y = 0
-            velocities[i].y *= -1
-        if positions[i].y > Y:
-            positions[i].y = Y
-            velocities[i].y *= -1
+    update_pos_on_velocity(positions, speed_mult, dt)
