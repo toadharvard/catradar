@@ -63,9 +63,8 @@ def movement_pattern_0(positions):
 def movement_pattern_1(positions):
     for i in range(N):
         p1_angles[i] = ti.raw_mod(p1_angles[i] + 0.05, 2 * pi)
-        velocities[i] = (
-            ti.Vector([ti.cos(p1_angles[i]), ti.sin(p1_angles[i])]) * p1_speeds[i]
-        )
+        velocities[i][0] = ti.cos(p1_angles[i]) * p1_speeds[i]
+        velocities[i][1] = ti.sin(p1_angles[i]) * p1_speeds[i]
 
 
 # Colliding
@@ -81,7 +80,7 @@ def movement_pattern_2(positions, intesections):
         for j in range(1, intersect_len + 1):
             interact_pos = positions[intesections[i, j]]
             vec_interact_to_self = self_pos - interact_pos
-            dist = (vec_interact_to_self).norm()
+            dist = ti.max((vec_interact_to_self).norm(), 1)
             force += (vec_interact_to_self / ti.pow(dist, 3)) * 10
 
         velocities[i] += force

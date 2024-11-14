@@ -89,6 +89,7 @@ def compute_states(
     positions: ti.template(),
     states: ti.template(),
     intesections: ti.template(),
+    update_intersections: ti.i8,
     norm_func: ti.i32,
     logged_id: ti.i32,
 ):
@@ -132,11 +133,14 @@ def compute_states(
                                 if logged_id == idx:
                                     logs_who_changed_id[None] = jdx
 
-                                intesections[idx, intersect_len + 1] = jdx
-                                intersect_len += 1
+                                if not update_intersections:
+                                    break
+                                else:
+                                    intesections[idx, intersect_len + 1] = jdx
+                                    intersect_len += 1
 
-                                if intersect_len == INTERSECTION_NUM:
-                                    break  # Exit early for performance
+                                    if intersect_len == INTERSECTION_NUM:
+                                        break  # Exit early for performance
                             elif dist <= R1:
                                 prob = 1.0 / (dist * dist)
                                 if ti.random() < prob:
@@ -145,10 +149,14 @@ def compute_states(
                                         logs_who_changed_id[None] = jdx
 
                     if state == STATE_INTERSECTION:
-                        if intersect_len == INTERSECTION_NUM:
+                        if not update_intersections:
+                            break
+                        elif intersect_len == INTERSECTION_NUM:
                             break  # Exit early if state is determined
             if state == STATE_INTERSECTION:
-                if intersect_len == INTERSECTION_NUM:
+                if not update_intersections:
+                    break
+                elif intersect_len == INTERSECTION_NUM:
                     break
 
         if logged_id == idx:

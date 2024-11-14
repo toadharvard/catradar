@@ -216,7 +216,7 @@ def main():
         )
         trace(
             lambda: compute_states(
-                positions, states, intesections, norm_func, logged_id
+                positions, states, intesections, update_opt == 2, norm_func, logged_id
             ),
             "compute_states",
         )
