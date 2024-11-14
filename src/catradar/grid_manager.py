@@ -112,6 +112,9 @@ def compute_states(
         state = STATE_IDLE
         intersect_len = 0
 
+        if logged_id == idx:
+            logs_who_changed_id[None] = -1  # Изначально нас никто не менял, поэтому -1
+
         for offset_x in range(-1, 2):
             for offset_y in range(-1, 2):
                 other_cell_x = cell_x + offset_x
