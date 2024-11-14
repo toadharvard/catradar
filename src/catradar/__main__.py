@@ -1,3 +1,4 @@
+import time
 import taichi as ti
 import numpy as np
 
@@ -21,6 +22,9 @@ R1: ti.f32 = 20.0
 LIMIT_PER_CELL: ti.i32 = 250
 # Other "soft" parameters
 init_opt: ti.i32 = 0
+update_opt: ti.i32 = 0
+cursor_push_on: ti.i8 = 0
+speed_mult: ti.f32 = 1
 render_rate: ti.i32 = 100
 norm_func: ti.i32 = 0
 
@@ -36,6 +40,11 @@ window_resol_y = 1000
 positions = NotImplemented  # Positions of circles
 states = NotImplemented  # States of circles
 
+# Data structure for first INTERSECTION_NUM intesections
+INTERSECTION_NUM = 10
+intesections = NotImplemented
+
+
 settings_buffer = {
     "X": X,
     "Y": Y,
@@ -48,7 +57,7 @@ settings_buffer = {
 
 
 def draw_ui(gui: ti.ui.Gui):
-    global render_rate, init_opt, norm_func
+    global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
     global logged_id, current_page, logs
     with gui.sub_window("Simulation", 0, 0, 0.2, 0.3) as w:
         settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 10000)
@@ -63,7 +72,7 @@ def draw_ui(gui: ti.ui.Gui):
             reset_grid()
             initialize_positions(positions, init_opt)
 
-    with gui.sub_window("Settings", 0, 0.3, 0.2, 0.2) as w:
+    with gui.sub_window("Settings", 0, 0.3, 0.2, 0.25) as w:
         render_rate = w.slider_int("Render rate", render_rate, 0, 100)
         settings_buffer["init_opt"] = w.slider_int(
             "Position preset", settings_buffer["init_opt"], 0, 1
@@ -71,6 +80,11 @@ def draw_ui(gui: ti.ui.Gui):
         if w.button("Set position preset"):
             init_opt = settings_buffer["init_opt"]
             initialize_positions(positions, init_opt)
+        w.text("0: Free movement\n1: Carousel\n2: Colliding")
+        update_opt = w.slider_int("Movement pattern", update_opt, 0, 2)
+        speed_mult = w.slider_float("Speed", speed_mult, 0.0, 5.0)
+        cursor_push_on = w.checkbox("Cursor push", cursor_push_on)
+
         w.text("0: Euclidean\n1: Manhattan\n2: Max")
         norm_func = w.slider_int("Distance preset", norm_func, 0, 2)
 
@@ -87,9 +101,14 @@ def setup_all_data():
     global positions, states
     positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
     states = ti.field(dtype=ti.i32, shape=N)
+    global intesections
+    intesections = ti.field(
+        dtype=ti.i32,
+        shape=(N, INTERSECTION_NUM + 1),
+    )
 
     setup_positions_data(X, Y, N)
-    setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL)
+    setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM)
     setup_data_for_canvas(N, R0)
 
 
@@ -125,8 +144,6 @@ def main():
     right_vector = np.cross(up_vector, camera_dir)
     right_vector = right_vector / np.linalg.norm(right_vector)
 
-    speed = 0.02  # Скорость перемещения камеры
-
     scene.ambient_light((1, 1, 1))
 
     gui = window.get_gui()
@@ -134,7 +151,11 @@ def main():
     setup_all_data()
     initialize_positions(positions, init_opt)
 
+    prev_update_time = time.time()
+
     while window.running:
+        speed = 0.01 * camera_pos[2]  # Скорость перемещения камеры
+
         if window.is_pressed("q"):
             # Перемещаем камеру вперед
             camera_pos += camera_dir * speed
@@ -155,9 +176,10 @@ def main():
         if window.is_pressed("s"):
             # Перемещаем камеру вниз
             camera_pos -= up_vector * speed
+        camera_pos[2] = max(camera_pos[2], 0.2)
 
         # Устанавливаем новую позицию камеры
-        camera.position(camera_pos[0], camera_pos[1], max(camera_pos[2], 0.2))
+        camera.position(camera_pos[0], camera_pos[1], camera_pos[2])
         camera.lookat(
             camera_pos[0] + camera_dir[0],
             camera_pos[1] + camera_dir[1],
@@ -166,9 +188,44 @@ def main():
         camera.up(up_vector[0], up_vector[1], up_vector[2])
         scene.set_camera(camera)
 
-        trace(lambda: update_positions(positions), "update_positions")
+        cursor_board_pos = ti.math.vec2(-1000, -1000)
+        # cursor info
+        if window.is_pressed(ti.GUI.LMB):
+            ws = window.get_window_shape()
+            cursor_pos = window.get_cursor_pos()
+            zoom = 1.2 / camera_pos[2]
+            # i really don't know how but it work
+            cursor_board_pos[0] = (
+                ws[0]
+                * (cursor_pos[0] + (camera_pos[0] * zoom * (ws[1] / ws[0]) - 0.5))
+                / zoom
+            )
+            cursor_board_pos[1] = (
+                ws[1] * (cursor_pos[1] + camera_pos[1] * zoom - 0.5) / zoom
+            )
+            cursor_board_pos *= window_resol_y / ws[1]
+
+            # gui.text(f"cursor {cursor_board_pos[0]} {cursor_board_pos[1]}")
+
+        new_update_time = time.time()
         trace(
-            lambda: compute_states(positions, states, norm_func, logged_id),
+            lambda: update_positions(
+                positions,
+                intesections,
+                cursor_board_pos,
+                cursor_push_on,
+                speed_mult,
+                update_opt,
+                new_update_time - prev_update_time,
+            ),
+            "update_positions",
+        )
+        prev_update_time = new_update_time
+
+        trace(
+            lambda: compute_states(
+                positions, states, intesections, update_opt == 2, norm_func, logged_id
+            ),
             "compute_states",
         )
         trace(lambda: update_logs(logged_id, logs), "collect_logs")
