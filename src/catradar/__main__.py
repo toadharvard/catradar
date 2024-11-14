@@ -23,6 +23,7 @@ LIMIT_PER_CELL: ti.i32 = 250
 init_opt: ti.i32 = 0
 update_opt: ti.i32 = 0
 cursor_push_on: ti.i8 = 0
+speed_mult: ti.f32 = 1
 render_rate: ti.i32 = 100
 norm_func: ti.i32 = 0
 
@@ -55,7 +56,7 @@ settings_buffer = {
 
 
 def draw_ui(gui: ti.ui.Gui):
-    global render_rate, init_opt, update_opt, cursor_push_on, norm_func
+    global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
     global logged_id, current_page, logs
     with gui.sub_window("Simulation", 0, 0, 0.2, 0.3) as w:
         settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 10000)
@@ -80,7 +81,9 @@ def draw_ui(gui: ti.ui.Gui):
             initialize_positions(positions, init_opt)
         w.text("0: Free movement\n1: Carousel\n2: Colliding")
         update_opt = w.slider_int("Movement pattern", update_opt, 0, 2)
+        speed_mult = w.slider_float("Speed", speed_mult, 0.0, 5.0)
         cursor_push_on = w.checkbox("Cursor push", cursor_push_on)
+
         w.text("0: Euclidean\n1: Manhattan\n2: Max")
         norm_func = w.slider_int("Distance preset", norm_func, 0, 2)
 
@@ -202,7 +205,12 @@ def main():
 
         trace(
             lambda: update_positions(
-                positions, intesections, cursor_board_pos, cursor_push_on, update_opt
+                positions,
+                intesections,
+                cursor_board_pos,
+                cursor_push_on,
+                speed_mult,
+                update_opt,
             ),
             "update_positions",
         )

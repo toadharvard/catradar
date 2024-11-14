@@ -102,6 +102,7 @@ def update_positions(
     intesections: ti.template(),
     cursor_pos: ti.math.vec2,
     cursor_push_on: ti.i8,
+    speed_mult: ti.f32,
     opt: ti.i32,
 ):
     if opt == 0:
@@ -115,7 +116,7 @@ def update_positions(
         cursor_push(positions, cursor_pos)
 
     for i in range(N):
-        positions[i] += velocities[i]
+        positions[i] += speed_mult * velocities[i]
         # Boundary conditions
         if positions[i].x < 0:
             positions[i].x = 0
