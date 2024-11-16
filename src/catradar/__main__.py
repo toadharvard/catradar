@@ -40,9 +40,9 @@ window_resol_y = 1000
 positions = NotImplemented  # Positions of circles
 states = NotImplemented  # States of circles
 
-# Data structure for first INTERSECTION_NUM intesections
+# Data structure for first INTERSECTION_NUM intersections
 INTERSECTION_NUM = 10
-intesections = NotImplemented
+intersections = NotImplemented
 
 
 settings_buffer = {
@@ -101,8 +101,8 @@ def setup_all_data():
     global positions, states
     positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
     states = ti.field(dtype=ti.i32, shape=N)
-    global intesections
-    intesections = ti.field(
+    global intersections
+    intersections = ti.field(
         dtype=ti.i32,
         shape=(N, INTERSECTION_NUM + 1),
     )
@@ -211,7 +211,7 @@ def main():
         trace(
             lambda: update_positions(
                 positions,
-                intesections,
+                intersections,
                 cursor_board_pos,
                 cursor_push_on,
                 speed_mult,
@@ -224,7 +224,7 @@ def main():
 
         trace(
             lambda: compute_states(
-                positions, states, intesections, update_opt == 2, norm_func, logged_id
+                positions, states, intersections, update_opt == 2, norm_func, logged_id
             ),
             "compute_states",
         )

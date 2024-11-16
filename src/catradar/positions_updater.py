@@ -54,13 +54,13 @@ def initialize_positions(positions: ti.template(), opt: ti.i32):
 
 # Free movement
 @ti.kernel
-def movement_pattern_0(positions: ti.template()):
+def movement_pattern_0():
     pass
 
 
 # Carousel
 @ti.kernel
-def movement_pattern_1(positions: ti.template()):
+def movement_pattern_1():
     for i in range(N):
         p1_angles[i] = ti.raw_mod(p1_angles[i] + 0.05, 2 * pi)
         velocities[i][0] = ti.cos(p1_angles[i]) * p1_speeds[i]
@@ -69,18 +69,18 @@ def movement_pattern_1(positions: ti.template()):
 
 # Colliding
 @ti.kernel
-def movement_pattern_2(positions: ti.template(), intesections: ti.template()):
+def movement_pattern_2(positions: ti.template(), intersections: ti.template()):
     for i in range(N):
         self_pos = positions[i]
         force = ti.math.vec2(0.0, 0.0)
         if velocities[i].norm() > 1:
             force = -(velocities[i] * p2_resistance)
 
-        intersect_len = intesections[i, 0]
+        intersect_len = intersections[i, 0]
         for j in range(1, intersect_len + 1):
-            interact_pos = positions[intesections[i, j]]
+            interact_pos = positions[intersections[i, j]]
             vec_interact_to_self = self_pos - interact_pos
-            dist = ti.max((vec_interact_to_self).norm(), 1)
+            dist = ti.max(vec_interact_to_self.norm(), 1)
             force += (vec_interact_to_self / ti.pow(dist, 3)) * 10
 
         velocities[i] += force
@@ -120,7 +120,7 @@ def update_pos_on_velocity(
 
 def update_positions(
     positions,
-    intesections,
+    intersections,
     cursor_pos: ti.math.vec2,
     cursor_push_on: ti.i8,
     speed_mult: ti.f32,
@@ -128,11 +128,11 @@ def update_positions(
     dt: ti.f32,
 ):
     if opt == 0:
-        movement_pattern_0(positions)
+        movement_pattern_0()
     if opt == 1:
-        movement_pattern_1(positions)
+        movement_pattern_1()
     if opt == 2:
-        movement_pattern_2(positions, intesections)
+        movement_pattern_2(positions, intersections)
 
     if cursor_push_on:
         cursor_push(positions, cursor_pos)

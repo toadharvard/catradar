@@ -88,7 +88,7 @@ logs_who_changed_id = ti.field(ti.i32, shape=())
 def compute_states(
     positions: ti.template(),
     states: ti.template(),
-    intesections: ti.template(),
+    intersections: ti.template(),
     update_intersections: ti.i8,
     norm_func: ti.i32,
     logged_id: ti.i32,
@@ -139,7 +139,7 @@ def compute_states(
                                 if not update_intersections:
                                     break
                                 else:
-                                    intesections[idx, intersect_len + 1] = jdx
+                                    intersections[idx, intersect_len + 1] = jdx
                                     intersect_len += 1
 
                                     if intersect_len == INTERSECTION_NUM:
@@ -166,7 +166,7 @@ def compute_states(
             logs_prev_state[None] = states[idx]
             logs_new_state[None] = state
         states[idx] = state
-        intesections[idx, 0] = intersect_len
+        intersections[idx, 0] = intersect_len
 
 
 def update_logs(logged_id, logs):
