@@ -1,4 +1,5 @@
 # catradar
+<img src=https://github.com/user-attachments/assets/8430ef08-1c38-43b6-b5d8-1d1980ac0bd2 alt="logo" width="100" align="right">
 
 Catradar — инструмент для запуска симуляции взаимодействия объектов (далее котов) на ограниченной карте и логгирования их взаимодействия.
 
