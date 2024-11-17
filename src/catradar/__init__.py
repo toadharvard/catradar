@@ -6,5 +6,5 @@ if os.environ.get("GITHUB_ACTIONS") == "true":
     print("Testing mode, running on the cpu")
     ti.init(arch=ti.cpu, debug=True)
 else:
-    print("Regular mode, running on the gpu")
+    print("Standard mode, running on the gpu")
     ti.init(arch=ti.gpu)
