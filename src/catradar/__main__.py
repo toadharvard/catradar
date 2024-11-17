@@ -124,6 +124,9 @@ def reset_grid():
     setup_all_data()
 
 
+cursor_pos_field = ti.Vector.field(2, dtype=ti.f32, shape=1)
+
+
 def main():
     window = ti.ui.Window(
         "Catradar: cat interaction simulation",
@@ -204,7 +207,6 @@ def main():
                 ws[1] * (cursor_pos[1] + camera_pos[1] * zoom - 0.5) / zoom
             )
             cursor_board_pos *= window_resol_y / ws[1]
-
             # gui.text(f"cursor {cursor_board_pos[0]} {cursor_board_pos[1]}")
 
         new_update_time = time.time()
@@ -237,6 +239,10 @@ def main():
             window_resol_x,
             window_resol_y,
         )
+        if cursor_push_on and window.is_pressed(ti.GUI.LMB):
+            cursor_pos = window.get_cursor_pos()
+            cursor_pos_field[0] = ti.Vector([cursor_pos[0], cursor_pos[1]])
+            canvas.circles(cursor_pos_field, radius=0.025, color=(0.8, 0.7, 0.7))
         trace(lambda: draw_ui(gui), "draw_ui")
         trace(lambda: canvas.scene(scene), "canvas.scene")
         trace(lambda: window.show(), "window.show")
