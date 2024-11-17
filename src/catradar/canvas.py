@@ -14,12 +14,12 @@ positions_to_draw = NotImplemented
 colors_to_draw = NotImplemented
 
 __all__ = [
-    "setup_data_for_canvas",
+    "setup_data_for_scene",
     "draw_circles",
 ]
 
 
-def setup_data_for_canvas(aN: ti.i32, aR0: ti.f32):
+def setup_data_for_scene(aN: ti.i32, aR0: ti.f32):
     global N, R0
     N = aN
     R0 = aR0
@@ -49,7 +49,7 @@ def update_colors(
 
 
 def draw_circles(
-    canvas: ti.ui.Scene,
+    scene: ti.ui.Scene,
     positions: ti.template(),
     states: ti.template(),
     render_rate: ti.i32,
@@ -63,7 +63,7 @@ def draw_circles(
         "update_colors",
     )
     trace(
-        lambda: canvas.particles(
+        lambda: scene.particles(
             positions_to_draw,
             radius=R0 / 2 / resol_x,
             per_vertex_color=colors_to_draw,
