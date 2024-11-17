@@ -3,6 +3,7 @@ import taichi as ti
 
 from catradar.common import STATE_INTERSECTION, STATE_IDLE
 from catradar.grid_manager import _calc_dist, setup_grid_data, compute_states
+from catradar.positions_updater import setup_positions_data, initialize_positions
 
 
 # Compute only STATE_INTERSECTION states because state STATE_INTERACT is randomized and will not be tested
@@ -22,19 +23,6 @@ def naive_algo(
             if _calc_dist(positions[i], positions[j], norm_func) <= RO:
                 states[i] = STATE_INTERSECTION
                 states[j] = STATE_INTERSECTION
-
-
-# copy-pasted from positions_updater.initialize_positions
-@ti.kernel
-def initialize_test_positions(
-    N: ti.i32, X: ti.i32, Y: ti.i32, positions: ti.template(), opt: ti.i32
-):
-    if opt == 0:
-        for i in range(N):
-            positions[i] = ti.Vector([50 + ti.random() * 10, 50 + ti.random()])
-    if opt == 1:
-        for i in range(N):
-            positions[i] = ti.Vector([ti.random() * X, ti.random() * Y])
 
 
 THRESHOLD = 0.05
@@ -57,11 +45,21 @@ THRESHOLD = 0.05
     ],
 )
 def test_compute_states(
-    N, X, Y, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM, update_intersections
+    N: ti.i32,
+    X: ti.f32,
+    Y: ti.f32,
+    R0: ti.f32,
+    R1: ti.f32,
+    LIMIT_PER_CELL: ti.i32,
+    INTERSECTION_NUM: ti.i32,
+    update_intersections: bool,
 ):
     positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
     states_expected = ti.field(dtype=ti.i32, shape=N)
     states_actual = ti.field(dtype=ti.i32, shape=N)
+
+    setup_positions_data(X, Y, N)
+    setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM)
 
     intersections_mock = ti.field(
         dtype=ti.i32,
@@ -71,11 +69,10 @@ def test_compute_states(
 
     wrong_count = 0
     for init_opt in range(2):
-        initialize_test_positions(N, X, Y, positions, init_opt)
+        initialize_positions(positions, init_opt)
         for norm_func in range(3):
             naive_algo(N, R0, positions, states_expected, norm_func)
 
-            setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM)
             compute_states(
                 positions,
                 states_actual,
