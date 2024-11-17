@@ -110,7 +110,7 @@ def compute_states(
     circles_per_cell.fill(0)
     for i in range(N):
         cell_idx = ti.floor(positions[i] / grid_cell_size, int)
-        circles_per_cell[cell_idx] += 1
+        ti.atomic_add(circles_per_cell[cell_idx], 1)
 
     # Compute prefix sum for each column
     for i in range(cell_count_x):
