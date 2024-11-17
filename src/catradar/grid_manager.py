@@ -176,8 +176,7 @@ def compute_states(
                                 logs_who_changed_id[None] = j
 
                             if not update_intersections:
-                                pass
-                                # break
+                                break
                             else:
                                 intersections[i, intersect_len + 1] = j
                                 intersect_len += 1
