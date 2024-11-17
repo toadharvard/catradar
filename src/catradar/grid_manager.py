@@ -183,7 +183,7 @@ def compute_states(
 
                                 if intersect_len == INTERSECTION_NUM:
                                     break  # Exit early for performance
-                        elif dist <= R1:
+                        elif dist <= R1 and state != STATE_INTERSECTION:
                             temp = dist - R0 * 0.75
                             prob = 1.0 / (temp * temp)
                             if ti.random() < prob:
