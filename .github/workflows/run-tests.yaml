@@ -25,4 +25,4 @@ jobs:
         run: rye sync
 
       - name: Run tests
-        run: python -m pytest -vv -s tests/
+        run: rye test -- -vv -s
