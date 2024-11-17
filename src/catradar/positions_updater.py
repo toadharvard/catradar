@@ -54,13 +54,13 @@ def initialize_positions(positions: ti.template(), opt: ti.i32):
 
 # Free movement
 @ti.kernel
-def movement_pattern_0():
+def movement_pattern_0(temp: ti.template()):
     pass
 
 
 # Carousel
 @ti.kernel
-def movement_pattern_1():
+def movement_pattern_1(temp: ti.template()):
     for i in range(N):
         p1_angles[i] = ti.raw_mod(p1_angles[i] + 0.05, 2 * pi)
         velocities[i][0] = ti.cos(p1_angles[i]) * p1_speeds[i]
@@ -128,9 +128,9 @@ def update_positions(
     dt: ti.f32,
 ):
     if opt == 0:
-        movement_pattern_0()
+        movement_pattern_0(positions)
     if opt == 1:
-        movement_pattern_1()
+        movement_pattern_1(positions)
     if opt == 2:
         movement_pattern_2(positions, intersections)
 
