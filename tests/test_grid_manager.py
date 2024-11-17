@@ -101,4 +101,4 @@ def test_compute_states(
                     if states_actual[i] == STATE_INTERSECTION:
                         wrong_count += 1
 
-    assert wrong_count <= int(THRESHOLD * N)
+            assert wrong_count <= int(THRESHOLD * N)
