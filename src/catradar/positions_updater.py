@@ -54,13 +54,17 @@ def initialize_positions(positions: ti.template(), opt: ti.i32):
 
 # Free movement
 @ti.kernel
-def movement_pattern_0(temp: ti.template()):
+def movement_pattern_0(
+    positions: ti.template(),  # Need to pass temp argument because taichi does not evaluate this otherwise
+):
     pass
 
 
 # Carousel
 @ti.kernel
-def movement_pattern_1(temp: ti.template()):
+def movement_pattern_1(
+    positions: ti.template(),  # Need to pass temp argument because taichi does not evaluate this otherwise
+):
     for i in range(N):
         p1_angles[i] = ti.raw_mod(p1_angles[i] + 0.05, 2 * pi)
         velocities[i][0] = ti.cos(p1_angles[i]) * p1_speeds[i]
