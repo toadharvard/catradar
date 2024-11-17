@@ -64,6 +64,7 @@ def test_compute_states(
     INTERSECTION_NUM: ti.i32,
     update_intersections: bool,
 ):
+    assert R0 <= R1
     positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
     states_expected = ti.field(dtype=ti.i32, shape=N)
     states_actual = ti.field(dtype=ti.i32, shape=N)
