@@ -4,7 +4,7 @@ import numpy as np
 
 from catradar.utils import trace
 
-from catradar.canvas import draw_circles, setup_data_for_canvas
+from catradar.canvas import draw_circles, setup_data_for_scene
 
 from catradar.positions_updater import (
     initialize_positions,
@@ -109,7 +109,7 @@ def setup_all_data():
 
     setup_positions_data(X, Y, N)
     setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM)
-    setup_data_for_canvas(N, R0)
+    setup_data_for_scene(N, R0)
 
 
 def reset_grid():
@@ -235,9 +235,11 @@ def main():
             scene,
             positions,
             states,
+            logged_id,
             render_rate,
             window_resol_x,
             window_resol_y,
+            window.get_window_shape(),
         )
         if cursor_push_on and window.is_pressed(ti.GUI.LMB):
             cursor_pos = window.get_cursor_pos()
