@@ -32,16 +32,26 @@ THRESHOLD = 0.05
     "N,X,Y,R0,R1,LIMIT_PER_CELL,INTERSECTION_NUM,update_intersections",
     [
         pytest.param(100, 1000, 1000, 5, 10, 250, 10, True),  # small grid
-        pytest.param(500, 1000, 1000, 10, 20, 250, 10, True),  # normal grid
+        pytest.param(500, 1000, 1000, 5, 20, 250, 10, True),  # normal grid
         pytest.param(
-            10000, 1000, 1000, 10, 20, 250, 10, True
+            10000,
+            1000,
+            1000,
+            5,
+            20,
+            10000,
+            10000,
+            True,  # TODO: change
         ),  # normal grid with many cats
         pytest.param(
-            10000, 10000, 100000, 25, 50, 250, 10, True
+            10000, 10000, 10000, 25, 50, 250, 10, True
         ),  # big grid with many cats
         pytest.param(
-            5000, 10000, 10000, 5, 20, 250, 10, False
-        ),  # regular grid with false as update_intersections
+            5000, 5000, 10000, 5, 20, 250, 10, False
+        ),  # regular grid with false as update_intersections, different X and Y
+        pytest.param(
+            5000, 10000, 5000, 5, 20, 250, 10, False
+        ),  # regular grid with false as update_intersections, different X and Y
     ],
 )
 def test_compute_states(

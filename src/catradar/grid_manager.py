@@ -190,10 +190,11 @@ def compute_states(
                                 if logged_id == i:
                                     logs_who_changed_id[None] = j
 
-                    if state == STATE_INTERSECTION and (
-                        not update_intersections or intersect_len == INTERSECTION_NUM
-                    ):
-                        break
+                if state == STATE_INTERSECTION and (
+                    not update_intersections or intersect_len == INTERSECTION_NUM
+                ):
+                    break
+
             if state == STATE_INTERSECTION and (
                 not update_intersections or intersect_len == INTERSECTION_NUM
             ):
