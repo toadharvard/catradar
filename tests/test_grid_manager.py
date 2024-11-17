@@ -31,26 +31,20 @@ THRESHOLD = 0.05
 @pytest.mark.parametrize(
     "N,X,Y,R0,R1,LIMIT_PER_CELL,INTERSECTION_NUM,update_intersections",
     [
-        pytest.param(100, 1000, 1000, 5, 10, 250, 10, True),  # small grid
+        pytest.param(20, 100, 100, 5, 10, 250, 10, True),  # small grid, few cats
+        pytest.param(100, 100, 100, 5, 10, 250, 10, True),  # small grid, many cats
         pytest.param(500, 1000, 1000, 5, 20, 250, 10, True),  # normal grid
         pytest.param(
-            10000,
-            1000,
-            1000,
-            5,
-            20,
-            10000,
-            10000,
-            True,  # TODO: change
-        ),  # normal grid with many cats
+            10000, 1000, 1000, 5, 20, 250, 10, True
+        ),  # normal grid, many cats
         pytest.param(
             10000, 10000, 10000, 25, 50, 250, 10, True
-        ),  # big grid with many cats
+        ),  # big grid, many cats
         pytest.param(
-            5000, 5000, 10000, 5, 20, 250, 10, False
+            5000, 4000, 7000, 5, 20, 250, 10, False
         ),  # regular grid with false as update_intersections, different X and Y
         pytest.param(
-            5000, 10000, 5000, 5, 20, 250, 10, False
+            5000, 6000, 3000, 5, 20, 250, 10, False
         ),  # regular grid with false as update_intersections, different X and Y
     ],
 )
