@@ -19,7 +19,7 @@ Y: ti.f32 = 1000
 N: ti.i32 = 500
 R0: ti.f32 = 5.0
 R1: ti.f32 = 20.0
-LIMIT_PER_CELL: ti.i32 = 250
+LIMIT_PER_CELL: ti.i32 = 100
 # Other "soft" parameters
 init_opt: ti.i32 = 0
 update_opt: ti.i32 = 0
@@ -51,7 +51,6 @@ settings_buffer = {
     "N": N,
     "R0": R0,
     "R1": R1,
-    "LIMIT_PER_CELL": LIMIT_PER_CELL,
     "init_opt": init_opt,
 }
 
@@ -65,9 +64,6 @@ def draw_ui(gui: ti.ui.Gui):
         settings_buffer["N"] = w.slider_int("N", settings_buffer["N"], 500, 1_000_000)
         settings_buffer["R0"] = w.slider_float("R0", settings_buffer["R0"], 1.0, 10.0)
         settings_buffer["R1"] = w.slider_float("R1", settings_buffer["R1"], 10.0, 50.0)
-        settings_buffer["LIMIT_PER_CELL"] = w.slider_int(
-            "LIMIT", settings_buffer["LIMIT_PER_CELL"], 100, 2000
-        )
         if w.button("Reset"):
             reset_grid()
             initialize_positions(positions, init_opt)
@@ -119,7 +115,6 @@ def reset_grid():
     N = settings_buffer["N"]
     R0 = settings_buffer["R0"]
     R1 = settings_buffer["R1"]
-    LIMIT_PER_CELL = settings_buffer["LIMIT_PER_CELL"]
 
     setup_all_data()
 

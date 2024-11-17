@@ -25,25 +25,40 @@ def naive_algo(
                 states[j] = STATE_INTERSECTION
 
 
+LIM = 100
+INTR = 10
 THRESHOLD = 0.01
 
 
 @pytest.mark.parametrize(
     "N,X,Y,R0,R1,LIMIT_PER_CELL,INTERSECTION_NUM,update_intersections",
     [
-        pytest.param(20, 100, 100, 5, 10, 250, 10, True),  # small grid, few cats
-        pytest.param(100, 100, 100, 5, 10, 250, 10, True),  # small grid, many cats
-        pytest.param(500, 1000, 1000, 5, 20, 250, 10, True),  # normal grid
-        pytest.param(10000, 1000, 1000, 5, 20, 250, 10, True),  # normal grid, many cats
-        pytest.param(10000, 10000, 10000, 25, 50, 250, 10, True),  # big grid, many cats
+        pytest.param(20, 100, 100, 1, 10, LIM, INTR, True),  # small grid, few cats
+        pytest.param(20, 100, 100, 5, 15, LIM, INTR, True),  # small grid, few cats
+        pytest.param(500, 100, 100, 5, 20, LIM, INTR, True),  # small grid, many cats
+        pytest.param(500, 1000, 1000, 1, 10, LIM, INTR, True),  # small grid, many cats
+        pytest.param(500, 1000, 1000, 5, 20, LIM, INTR, True),  # small grid, many cats
+        pytest.param(500, 1000, 1000, 10, 50, LIM, INTR, True),  # normal grid
         pytest.param(
-            10000, 4000, 7000, 5, 20, 250, 10, False
+            10000, 1000, 1000, 5, 20, LIM, INTR, True
+        ),  # normal grid, many cats
+        pytest.param(
+            10000, 10000, 10000, 25, 50, LIM, INTR, True
+        ),  # big grid, many cats
+        pytest.param(
+            10000, 4000, 7000, 5, 20, LIM, INTR, False
         ),  # regular grid with false as update_intersections, different X and Y
         pytest.param(
-            10000, 6000, 3000, 5, 20, 250, 10, False
+            10000, 6000, 3000, 5, 20, LIM, INTR, False
         ),  # regular grid with false as update_intersections, different X and Y
         pytest.param(
-            1000000, 10000, 10000, 10, 50, 250, 10, True
+            100000, 1000, 1000, 5, 20, LIM, INTR, True
+        ),  # A lot of cats, small grid
+        pytest.param(
+            100000, 10000, 10000, 1, 10, LIM, INTR, True
+        ),  # A lot of cats, big grid
+        pytest.param(
+            100000, 10000, 10000, 10, 50, LIM, INTR, True
         ),  # A lot of cats, big grid
     ],
 )
