@@ -34,12 +34,8 @@ THRESHOLD = 0.05
         pytest.param(20, 100, 100, 5, 10, 250, 10, True),  # small grid, few cats
         pytest.param(100, 100, 100, 5, 10, 250, 10, True),  # small grid, many cats
         pytest.param(500, 1000, 1000, 5, 20, 250, 10, True),  # normal grid
-        pytest.param(
-            10000, 1000, 1000, 5, 20, 250, 10, True
-        ),  # normal grid, many cats
-        pytest.param(
-            10000, 10000, 10000, 25, 50, 250, 10, True
-        ),  # big grid, many cats
+        pytest.param(10000, 1000, 1000, 5, 20, 250, 10, True),  # normal grid, many cats
+        pytest.param(10000, 10000, 10000, 25, 50, 250, 10, True),  # big grid, many cats
         pytest.param(
             5000, 4000, 7000, 5, 20, 250, 10, False
         ),  # regular grid with false as update_intersections, different X and Y
