@@ -12,3 +12,7 @@ state_to_str = {
     STATE_INTERACT: "INTERACT",
     STATE_INTERSECTION: "INTERSECTION",
 }
+
+# Modes of running program
+STANDARD_MODE = 0
+TESTING_MODE = 1

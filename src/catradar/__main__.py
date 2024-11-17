@@ -1,6 +1,7 @@
 import time
 import taichi as ti
 import numpy as np
+from catradar.common import STANDARD_MODE
 
 from catradar.utils import trace
 
@@ -104,7 +105,7 @@ def setup_all_data():
     )
 
     setup_positions_data(X, Y, N)
-    setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM)
+    setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM, STANDARD_MODE)
     setup_data_for_scene(N, R0)
 
 

@@ -1,7 +1,7 @@
 import pytest
 import taichi as ti
 
-from catradar.common import STATE_INTERSECTION, STATE_IDLE
+from catradar.common import STATE_INTERSECTION, STATE_IDLE, TESTING_MODE, STATE_INTERACT
 from catradar.grid_manager import _calc_dist, setup_grid_data, compute_states
 from catradar.positions_updater import setup_positions_data, initialize_positions
 
@@ -11,6 +11,7 @@ from catradar.positions_updater import setup_positions_data, initialize_position
 def naive_algo(
     N: ti.i32,
     RO: ti.i32,
+    R1: ti.i32,
     positions: ti.template(),
     states: ti.template(),
     norm_func: ti.i32,
@@ -20,9 +21,15 @@ def naive_algo(
 
     for i in range(N):
         for j in range(i + 1, N):
-            if _calc_dist(positions[i], positions[j], norm_func) <= RO:
+            dist = _calc_dist(positions[i], positions[j], norm_func)
+            if dist <= RO:
                 states[i] = STATE_INTERSECTION
                 states[j] = STATE_INTERSECTION
+            elif dist <= R1:
+                if states[i] != STATE_INTERSECTION:
+                    states[i] = STATE_INTERACT
+                if states[j] != STATE_INTERSECTION:
+                    states[j] = STATE_INTERACT
 
 
 LIM = 100
@@ -78,7 +85,7 @@ def test_compute_states(
     states_actual = ti.field(dtype=ti.i32, shape=N)
 
     setup_positions_data(X, Y, N)
-    setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM)
+    setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM, TESTING_MODE)
 
     intersections_mock = ti.field(
         dtype=ti.i32,
@@ -90,7 +97,7 @@ def test_compute_states(
     for init_opt in range(2):
         initialize_positions(positions, init_opt)
         for norm_func in range(3):
-            naive_algo(N, R0, positions, states_expected, norm_func)
+            naive_algo(N, R0, R1, positions, states_expected, norm_func)
 
             compute_states(
                 positions,
@@ -102,11 +109,7 @@ def test_compute_states(
             )
 
             for i in range(N):
-                if states_expected[i] == STATE_INTERSECTION:
-                    if states_actual[i] != STATE_INTERSECTION:
-                        wrong_count += 1
-                if states_expected[i] == STATE_IDLE:
-                    if states_actual[i] == STATE_INTERSECTION:
-                        wrong_count += 1
+                if states_expected[i] != states_actual[i]:
+                    wrong_count += 1
 
             assert wrong_count <= int(THRESHOLD * N)
