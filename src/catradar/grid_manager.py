@@ -1,3 +1,4 @@
+# implementation of this module was taken from https://docs.taichi-lang.org/blog/acclerate-collision-detection-with-taichi
 import taichi as ti
 
 __all__ = [
@@ -22,14 +23,14 @@ N: ti.i32
 R0: ti.f32
 R1: ti.f32
 LIMIT_PER_CELL: ti.i32
-grid_cell_size: ti.i32
-cell_count_x = ti.i32
-cell_count_y = ti.i32
+grid_cell_size: ti.i32  # the length and height of each grid cell (cells are squares)
+cell_count_x = ti.i32  # count of cells by X coordinate
+cell_count_y = ti.i32  # count of cells by Y coordinate
 INTERSECTION_NUM: ti.i32
 
 circles_per_cell = NotImplemented  # count of circles per cell of grid
-column_sum = NotImplemented
-prefix_sum = NotImplemented
+column_sum = NotImplemented  # prefix sums for each column of circles_per_cell
+prefix_sum = NotImplemented  # prefix sums for circles_per_cell
 list_head = NotImplemented
 list_cur = NotImplemented
 list_tail = NotImplemented
@@ -96,7 +97,6 @@ def _calc_dist(
     return res
 
 
-# implementation was taken from https://docs.taichi-lang.org/blog/acclerate-collision-detection-with-taichi
 @ti.func
 def _fill_grid(positions: ti.template()):
     # Compute count of circles per cell
@@ -164,9 +164,13 @@ def compute_states(
         for neigh_x in range(x_begin, x_end):
             for neigh_y in range(y_begin, y_end):
                 neigh_linear_idx = neigh_x * cell_count_y + neigh_y
+                processed_neigh_num = 0
                 for p in range(
                     list_head[neigh_linear_idx], list_tail[neigh_linear_idx]
-                ):  # TODO: consider add LIMIT_PER_CELL
+                ):
+                    if processed_neigh_num > LIMIT_PER_CELL:
+                        break
+                    processed_neigh_num += 1
                     j = circles_id[p]
                     if i != j:
                         dist = _calc_dist(positions[i], positions[j], norm_func)
@@ -176,7 +180,8 @@ def compute_states(
                                 logs_who_changed_id[None] = j
 
                             if not update_intersections:
-                                break
+                                pass
+                                # break
                             else:
                                 intersections[i, intersect_len + 1] = j
                                 intersect_len += 1
