@@ -237,6 +237,7 @@ def main():
             render_rate,
             window_resol_x,
             window_resol_y,
+            window.get_window_shape(),
         )
         trace(lambda: draw_ui(gui), "draw_ui")
         trace(lambda: canvas.scene(scene), "canvas.scene")

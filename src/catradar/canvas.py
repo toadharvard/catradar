@@ -33,6 +33,7 @@ def setup_data_for_scene(aN: ti.i32, aR0: ti.f32):
 def update_colors(
     positions: ti.template(),
     states: ti.template(),
+    logged_id: ti.i32,
     render_rate: ti.i32,
     resol_x: ti.i32,
     resol_y: ti.i32,
@@ -40,32 +41,42 @@ def update_colors(
     for i in range(int(N * render_rate / 100)):
         fixed = positions[i] / ti.Vector([resol_x, resol_y])
         positions_to_draw[i] = ti.Vector([fixed[0], fixed[1], 0])
+        if logged_id == i:
+            colors_to_draw[i] = ti.Vector([0.5, 0.5, 0.5])
+        else:
+            colors_to_draw[i] = ti.Vector([0.0, 0.0, 0.0])
+
         if states[i] == STATE_IDLE:
-            colors_to_draw[i] = ti.Vector([0.0, 0.0, 1.0])
+            colors_to_draw[i] += ti.Vector([0.0, 0.0, 0.5])
         elif states[i] == STATE_INTERACT:
-            colors_to_draw[i] = ti.Vector([0.0, 1.0, 0.0])
+            colors_to_draw[i] += ti.Vector([0.0, 0.5, 0.0])
         elif states[i] == STATE_INTERSECTION:
-            colors_to_draw[i] = ti.Vector([1.0, 0.0, 0.0])
+            colors_to_draw[i] += ti.Vector([0.5, 0.0, 0.0])
 
 
 def draw_circles(
     scene: ti.ui.Scene,
     positions: ti.template(),
     states: ti.template(),
+    logged_id: ti.i32,
     render_rate: ti.i32,
     resol_x: ti.i32,
     resol_y: ti.i32,
+    window_size: tuple,
 ):
     if render_rate == 0:  # Do not render at all
         return
     trace(
-        lambda: update_colors(positions, states, render_rate, resol_x, resol_y),
+        lambda: update_colors(
+            positions, states, logged_id, render_rate, resol_x, resol_y
+        ),
         "update_colors",
     )
+
     trace(
         lambda: scene.particles(
             positions_to_draw,
-            radius=R0 / 2 / resol_x,
+            radius=R0 / 2 / window_size[0] / resol_y * window_size[1],
             per_vertex_color=colors_to_draw,
             index_offset=0,
             index_count=int(N * render_rate / 100),
