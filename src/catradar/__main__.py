@@ -126,7 +126,7 @@ def reset_grid():
 
 def main():
     window = ti.ui.Window(
-        "Circles",
+        "Catradar: cat interaction simulation",
         res=(window_resol_x, window_resol_y),
         fps_limit=60,
         vsync=True,
