@@ -244,7 +244,7 @@ def main():
         if cursor_push_on and window.is_pressed(ti.GUI.LMB):
             cursor_pos = window.get_cursor_pos()
             cursor_pos_field[0] = ti.Vector([cursor_pos[0], cursor_pos[1]])
-            canvas.circles(cursor_pos_field, radius=0.025, color=(0.8, 0.7, 0.7))
+            canvas.circles(cursor_pos_field, radius=0.025 * zoom, color=(0.8, 0.7, 0.7))
         trace(lambda: draw_ui(gui), "draw_ui")
         trace(lambda: canvas.scene(scene), "canvas.scene")
         trace(lambda: window.show(), "window.show")
