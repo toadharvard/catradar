@@ -25,7 +25,7 @@ def naive_algo(
                 states[j] = STATE_INTERSECTION
 
 
-THRESHOLD = 0.05
+THRESHOLD = 0.01
 
 
 @pytest.mark.parametrize(
@@ -42,6 +42,12 @@ THRESHOLD = 0.05
         pytest.param(
             10000, 6000, 3000, 5, 20, 250, 10, False
         ),  # regular grid with false as update_intersections, different X and Y
+        pytest.param(
+            1000000, 1000, 1000, 50, 100, 250, 10, True
+        ),  # A lot of cats, regular grid
+        pytest.param(
+            1000000, 10000, 10000, 50, 100, 250, 10, True
+        ),  # A lot of cats, big grid
     ],
 )
 def test_compute_states(
