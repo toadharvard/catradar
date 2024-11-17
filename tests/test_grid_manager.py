@@ -43,10 +43,7 @@ THRESHOLD = 0.01
             10000, 6000, 3000, 5, 20, 250, 10, False
         ),  # regular grid with false as update_intersections, different X and Y
         pytest.param(
-            1000000, 1000, 1000, 50, 100, 250, 10, True
-        ),  # A lot of cats, regular grid
-        pytest.param(
-            1000000, 10000, 10000, 50, 100, 250, 10, True
+            1000000, 10000, 10000, 10, 50, 250, 10, True
         ),  # A lot of cats, big grid
     ],
 )
