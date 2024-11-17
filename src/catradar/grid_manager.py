@@ -189,11 +189,8 @@ def compute_states(
                                 if intersect_len == INTERSECTION_NUM:
                                     break  # Exit early for performance
                         elif dist <= R1 and state != STATE_INTERSECTION:
-                            if MODE == TESTING_MODE:
-                                prob = 1
-                            else:
-                                temp = dist - R0 * 0.75 + EPS
-                                prob = 1.0 / (temp * temp)
+                            temp = dist - R0 * 0.75 + EPS
+                            prob = 1 if MODE == TESTING_MODE else 1.0 / (temp * temp)
                             if ti.random() <= prob:
                                 state = STATE_INTERACT
                                 if logged_id == i:
