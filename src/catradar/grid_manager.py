@@ -27,9 +27,17 @@ cell_count_x = ti.i32
 cell_count_y = ti.i32
 INTERSECTION_NUM: ti.i32
 
-# Grid data structures for collision detection
-grid_num_circles = NotImplemented
-grid_circles = NotImplemented
+circles_per_cell = NotImplemented  # count of circles per cell of grid
+column_sum = NotImplemented
+prefix_sum = NotImplemented
+list_head = NotImplemented
+list_cur = NotImplemented
+list_tail = NotImplemented
+circles_id = NotImplemented
+
+logs_prev_state = ti.field(ti.i32, shape=())
+logs_new_state = ti.field(ti.i32, shape=())
+logs_who_changed_id = ti.field(ti.i32, shape=())
 
 
 def setup_grid_data(
@@ -55,12 +63,21 @@ def setup_grid_data(
     cell_count_x = int(X / grid_cell_size) + 1
     cell_count_y = int(Y / grid_cell_size) + 1
 
-    global grid_num_circles, grid_circles
-    grid_num_circles = ti.field(dtype=ti.i32, shape=(cell_count_x, cell_count_y))
-    grid_circles = ti.field(
-        dtype=ti.i32,
-        shape=(cell_count_x, cell_count_y, LIMIT_PER_CELL),
-    )
+    global \
+        circles_per_cell, \
+        column_sum, \
+        prefix_sum, \
+        list_head, \
+        list_cur, \
+        list_tail, \
+        circles_id
+    circles_per_cell = ti.field(dtype=ti.i32, shape=(cell_count_x, cell_count_y))
+    column_sum = ti.field(dtype=ti.i32, shape=cell_count_x)
+    prefix_sum = ti.field(dtype=ti.i32, shape=(cell_count_x, cell_count_y))
+    list_head = ti.field(dtype=ti.i32, shape=cell_count_x * cell_count_y)
+    list_cur = ti.field(dtype=ti.i32, shape=cell_count_x * cell_count_y)
+    list_tail = ti.field(dtype=ti.i32, shape=cell_count_x * cell_count_y)
+    circles_id = ti.field(dtype=ti.i32, shape=N)
 
 
 @ti.func
@@ -79,9 +96,45 @@ def _calc_dist(
     return res
 
 
-logs_prev_state = ti.field(ti.i32, shape=())
-logs_new_state = ti.field(ti.i32, shape=())
-logs_who_changed_id = ti.field(ti.i32, shape=())
+# implementation was taken from https://docs.taichi-lang.org/blog/acclerate-collision-detection-with-taichi
+@ti.func
+def _fill_grid(positions: ti.template()):
+    # Compute count of circles per cell
+    circles_per_cell.fill(0)
+    for i in range(N):
+        cell_idx = ti.floor(positions[i] / grid_cell_size, int)
+        circles_per_cell[cell_idx] += 1
+
+    # Compute prefix sum for each column
+    for i in range(cell_count_x):
+        cur_sum = 0
+        for j in range(cell_count_y):
+            cur_sum += circles_per_cell[i, j]
+        column_sum[i] = cur_sum
+
+    # Compute prefix sum for all grid
+    prefix_sum[0, 0] = 0
+    ti.loop_config(serialize=True)
+    for i in range(1, cell_count_x):
+        prefix_sum[i, 0] = prefix_sum[i - 1, 0] + column_sum[i - 1]
+    for i in range(cell_count_x):
+        for j in range(cell_count_y):
+            if j == 0:
+                prefix_sum[i, j] += circles_per_cell[i, j]
+            else:
+                prefix_sum[i, j] = prefix_sum[i, j - 1] + circles_per_cell[i, j]
+
+            linear_idx = i * cell_count_y + j
+            list_head[linear_idx] = prefix_sum[i, j] - circles_per_cell[i, j]
+            list_cur[linear_idx] = list_head[linear_idx]
+            list_tail[linear_idx] = prefix_sum[i, j]
+
+    # Place the id of the circles in the right places of circles_id
+    for i in range(N):
+        grid_idx = ti.floor(positions[i] / grid_cell_size, int)
+        linear_idx = grid_idx[0] * cell_count_y + grid_idx[1]
+        cell_location = ti.atomic_add(list_cur[linear_idx], 1)
+        circles_id[cell_location] = i
 
 
 @ti.kernel
@@ -93,80 +146,64 @@ def compute_states(
     norm_func: ti.i32,
     logged_id: ti.i32,
 ):
-    grid_num_circles.fill(0)
+    _fill_grid(positions)
 
-    # Insert circles into grid
-    for idx in range(N):
-        pos = positions[idx]
-        cell_x = int(pos.x / grid_cell_size)
-        cell_y = int(pos.y / grid_cell_size)
-        num = ti.atomic_add(grid_num_circles[cell_x, cell_y], 1)
-        if num < LIMIT_PER_CELL:
-            grid_circles[cell_x, cell_y, num] = idx
-
-    for idx in range(N):
-        pos_i = positions[idx]
-        cell_x = int(pos_i.x / grid_cell_size)
-        cell_y = int(pos_i.y / grid_cell_size)
+    for i in range(N):
+        grid_idx = ti.floor(positions[i] / grid_cell_size, int)
+        x_begin = max(grid_idx[0] - 1, 0)
+        x_end = min(grid_idx[0] + 2, cell_count_x)
+        y_begin = max(grid_idx[1] - 1, 0)
+        y_end = min(grid_idx[1] + 2, cell_count_y)
 
         state = STATE_IDLE
         intersect_len = 0
 
-        if logged_id == idx:
-            logs_who_changed_id[None] = -1  # Изначально нас никто не менял, поэтому -1
+        if logged_id == i:
+            logs_who_changed_id[None] = -1  # Initially, no one changed state of idx
 
-        for offset_x in range(-1, 2):
-            for offset_y in range(-1, 2):
-                other_cell_x = cell_x + offset_x
-                other_cell_y = cell_y + offset_y
-                if (
-                    0 <= other_cell_x < cell_count_x
-                    and 0 <= other_cell_y < cell_count_y
-                ):
-                    num = ti.min(
-                        grid_num_circles[other_cell_x, other_cell_y], LIMIT_PER_CELL
-                    )
-                    for k in range(num):
-                        jdx = grid_circles[other_cell_x, other_cell_y, k]
-                        if jdx != idx:
-                            pos_j = positions[jdx]
-                            dist = _calc_dist(pos_i, pos_j, norm_func)
-                            if dist <= R0:
-                                state = STATE_INTERSECTION
-                                if logged_id == idx:
-                                    logs_who_changed_id[None] = jdx
+        for neigh_x in range(x_begin, x_end):
+            for neigh_y in range(y_begin, y_end):
+                neigh_linear_idx = neigh_x * cell_count_y + neigh_y
+                for p in range(
+                    list_head[neigh_linear_idx], list_tail[neigh_linear_idx]
+                ):  # TODO: consider add LIMIT_PER_CELL
+                    j = circles_id[p]
+                    if i != j:
+                        dist = _calc_dist(positions[i], positions[j], norm_func)
+                        if dist <= R0:
+                            state = STATE_INTERSECTION
+                            if logged_id == i:
+                                logs_who_changed_id[None] = j
 
-                                if not update_intersections:
-                                    break
-                                else:
-                                    intersections[idx, intersect_len + 1] = jdx
-                                    intersect_len += 1
+                            if not update_intersections:
+                                break
+                            else:
+                                intersections[i, intersect_len + 1] = j
+                                intersect_len += 1
 
-                                    if intersect_len == INTERSECTION_NUM:
-                                        break  # Exit early for performance
-                            elif dist <= R1:
-                                prob = 1.0 / (dist * dist)
-                                if ti.random() < prob:
-                                    state = STATE_INTERACT
-                                    if logged_id == idx:
-                                        logs_who_changed_id[None] = jdx
+                                if intersect_len == INTERSECTION_NUM:
+                                    break  # Exit early for performance
+                        elif dist <= R1:
+                            prob = 1.0 / (dist * dist)
+                            if ti.random() < prob:
+                                state = STATE_INTERACT
+                                if logged_id == i:
+                                    logs_who_changed_id[None] = j
 
-                    if state == STATE_INTERSECTION:
-                        if not update_intersections:
-                            break
-                        elif intersect_len == INTERSECTION_NUM:
-                            break  # Exit early if state is determined
-            if state == STATE_INTERSECTION:
-                if not update_intersections:
-                    break
-                elif intersect_len == INTERSECTION_NUM:
-                    break
+                    if state == STATE_INTERSECTION and (
+                        not update_intersections or intersect_len == INTERSECTION_NUM
+                    ):
+                        break
+            if state == STATE_INTERSECTION and (
+                not update_intersections or intersect_len == INTERSECTION_NUM
+            ):
+                break
 
-        if logged_id == idx:
-            logs_prev_state[None] = states[idx]
+        if logged_id == i:
+            logs_prev_state[None] = states[i]
             logs_new_state[None] = state
-        states[idx] = state
-        intersections[idx, 0] = intersect_len
+        states[i] = state
+        intersections[i, 0] = intersect_len
 
 
 def update_logs(logged_id, logs):
