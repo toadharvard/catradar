@@ -97,8 +97,15 @@ def _calc_dist(
     return res
 
 
-@ti.func
-def _fill_grid(positions: ti.template()):
+@ti.kernel
+def compute_states(
+    positions: ti.template(),
+    states: ti.template(),
+    intersections: ti.template(),
+    update_intersections: ti.i8,
+    norm_func: ti.i32,
+    logged_id: ti.i32,
+):
     # Compute count of circles per cell
     circles_per_cell.fill(0)
     for i in range(N):
@@ -136,18 +143,7 @@ def _fill_grid(positions: ti.template()):
         cell_location = ti.atomic_add(list_cur[linear_idx], 1)
         circles_id[cell_location] = i
 
-
-@ti.kernel
-def compute_states(
-    positions: ti.template(),
-    states: ti.template(),
-    intersections: ti.template(),
-    update_intersections: ti.i8,
-    norm_func: ti.i32,
-    logged_id: ti.i32,
-):
-    _fill_grid(positions)
-
+    # Compute state of each circle after filling grid
     for i in range(N):
         grid_idx = ti.floor(positions[i] / grid_cell_size, int)
         x_begin = max(grid_idx[0] - 1, 0)
