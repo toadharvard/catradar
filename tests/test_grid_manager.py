@@ -68,7 +68,6 @@ THRESHOLD = 0.01
         ),  # A lot of cats, big grid
     ],
 )
-
 def test_compute_states(
     N: ti.i32,
     X: ti.f32,
