@@ -217,19 +217,18 @@ def update_logs(
     new_state_vec: ti.template(),
     prev_state_vec: ti.template(),
     who_changed_id_vec: ti.template(),
-    cur_logs_size: ti.template(),
+    cur_logs_ptr: ti.template(),
     max_sz: ti.i32,
-):
+) -> bool:
+    overflow = False
     if new_state[None] != prev_state[None]:
-        if cur_logs_size[None] == max_sz:
-            half = max_sz // 2
-            cur_logs_size[None] = half
-            for i in range(half):
-                new_state_vec[i] = prev_state_vec[i + half]
-                prev_state_vec[i] = prev_state_vec[i + half]
-                who_changed_id_vec[i] = who_changed_id_vec[i + half]
+        if cur_logs_ptr[None] == max_sz:
+            overflow = True
+            cur_logs_ptr[None] = 0
 
-        new_state_vec[cur_logs_size[None]] = new_state[None]
-        prev_state_vec[cur_logs_size[None]] = prev_state[None]
-        who_changed_id_vec[cur_logs_size[None]] = who_changed_id[None]
-        cur_logs_size[None] += 1
+        new_state_vec[cur_logs_ptr[None]] = new_state[None]
+        prev_state_vec[cur_logs_ptr[None]] = prev_state[None]
+        who_changed_id_vec[cur_logs_ptr[None]] = who_changed_id[None]
+        cur_logs_ptr[None] += 1
+
+    return overflow
