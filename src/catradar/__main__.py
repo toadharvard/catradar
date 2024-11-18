@@ -1,7 +1,7 @@
 import time
 import taichi as ti
 import numpy as np
-from catradar.common import STANDARD_MODE
+from catradar.common import STANDARD_MODE, state_to_str
 import tkinter as tk
 
 from catradar.utils import trace
@@ -30,9 +30,14 @@ speed_mult: ti.f32 = 1
 render_rate: ti.i32 = 100
 norm_func: ti.i32 = 0
 
-logging_enabled: bool = False
+logging_enabled: bool = True
 logged_id: ti.i32 = 0
-logs = []
+MAX_LOGS_SIZE = 10000
+cur_logs_size = ti.field(ti.i32, shape=())
+cur_logs_size[None] = 0
+logs_new_state = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
+logs_prev_state = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
+logs_who_changed = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
 current_page = 0
 per_page = 50
 
@@ -63,9 +68,27 @@ settings_buffer = {
 allow_large_n = False
 
 
+def log_str(idx: int):
+    new_state_str = state_to_str[logs_new_state[idx]]
+    prev_state_str = state_to_str[logs_prev_state[idx]]
+    if logs_who_changed[idx] == -1:
+        return "State of {} id changed: {} -> {}".format(
+            logged_id,
+            prev_state_str,
+            new_state_str,
+        )
+    else:
+        return "State of {} id changed: {} -> {} by {} id".format(
+            logged_id,
+            prev_state_str,
+            new_state_str,
+            logs_who_changed[idx],
+        )
+
+
 def draw_ui(gui: ti.ui.Gui):
     global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
-    global allow_large_n, logging_enabled, logged_id, current_page, logs
+    global allow_large_n, logging_enabled, logged_id, current_page
     LEFT_BORDER = 0.3
     with gui.sub_window("Simulation parameters", 0, 0, LEFT_BORDER, 0.25) as w:
         settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 10000)
@@ -95,18 +118,21 @@ def draw_ui(gui: ti.ui.Gui):
         update_opt = w.slider_int("Movement pattern", update_opt, 0, 2)
         w.text("0 - Euclidean, 1 - Manhattan, 2 - Max")
         norm_func = w.slider_int("Distance function preset", norm_func, 0, 2)
-        cursor_push_on = w.checkbox("Cursor push", cursor_push_on)
+        cursor_push_on = w.checkbox("Allow cursor push", cursor_push_on)
 
-    with gui.sub_window("Logs", 0, 0.45, LEFT_BORDER, 0.55) as w:
-        logging_enabled = w.checkbox("Logging", logging_enabled)
-        if logging_enabled:
-            if w.button("Clear logs"):
-                logs = []
-            logged_id = w.slider_int("Logged circle index", logged_id, 0, N - 1)
-            current_page = w.slider_int("Page", current_page, 0, len(logs) // per_page)
-            w.text(
-                "\n".join(logs[current_page * per_page : (current_page + 1) * per_page])
-            )
+    with gui.sub_window("Logging", 0, 0.45, LEFT_BORDER, 0.55) as w:
+        text_button = "Pause" if logging_enabled else "Continue"
+        if w.button(text_button):
+            logging_enabled = not logging_enabled
+        if w.button("Clear logs"):
+            cur_logs_size[None] = 0
+        logged_id = w.slider_int("Logged cat index", logged_id, 0, N - 1)
+        current_page = w.slider_int(
+            "Page", current_page, 0, cur_logs_size[None] // per_page
+        )
+        left = max(0, cur_logs_size[None] - (current_page + 1) * per_page)
+        right = cur_logs_size[None] - current_page * per_page
+        w.text("\n".join([log_str(i) for i in reversed(range(left, right))]))
 
 
 def setup_all_data():
@@ -248,7 +274,17 @@ def main():
             ),
             "compute_states",
         )
-        trace(lambda: update_logs(logged_id, logs), "collect_logs")
+        if logging_enabled:
+            trace(
+                lambda: update_logs(
+                    logs_new_state,
+                    logs_prev_state,
+                    logs_who_changed,
+                    cur_logs_size,
+                    MAX_LOGS_SIZE,
+                ),
+                "collect_logs",
+            )
         trace(lambda: draw_borders(scene), "draw_borders")
 
         draw_circles(
