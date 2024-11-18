@@ -110,7 +110,7 @@ def draw_ui(gui: ti.ui.Gui):
             text_button = "Pause" if print_logs else "Continue"
             if w.button(text_button):
                 print_logs = not print_logs
-            if w.button("Clear logs"):
+            if w.button("Clear"):
                 logs = []
             logged_id = w.slider_int("Logged cat index", logged_id, 0, N - 1)
             logs_sz = len(logs)
