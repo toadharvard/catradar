@@ -2,10 +2,11 @@ import time
 import taichi as ti
 import numpy as np
 from catradar.common import STANDARD_MODE
+import tkinter as tk
 
 from catradar.utils import trace
 
-from catradar.canvas import draw_circles, setup_data_for_scene
+from catradar.canvas import draw_circles, setup_data_for_scene, draw_borders
 
 from catradar.positions_updater import (
     initialize_positions,
@@ -29,13 +30,19 @@ speed_mult: ti.f32 = 1
 render_rate: ti.i32 = 100
 norm_func: ti.i32 = 0
 
+logging_enabled: bool = False
 logged_id: ti.i32 = 0
 logs = []
 current_page = 0
 per_page = 50
 
-window_resol_x = 1000
-window_resol_y = 1000
+# Get resolution of user screen
+root = tk.Tk()
+root.withdraw()
+init_resol_x = root.winfo_screenwidth()
+init_resol_y = root.winfo_screenheight()
+root.destroy()
+NORM_RATIO = 1000
 
 # Shared between modules memory
 positions = NotImplemented  # Positions of circles
@@ -45,7 +52,6 @@ states = NotImplemented  # States of circles
 INTERSECTION_NUM = 10
 intersections = NotImplemented
 
-
 settings_buffer = {
     "X": X,
     "Y": Y,
@@ -54,43 +60,52 @@ settings_buffer = {
     "R1": R1,
     "init_opt": init_opt,
 }
+allow_large_n = False
 
 
 def draw_ui(gui: ti.ui.Gui):
     global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
-    global logged_id, current_page, logs
-    with gui.sub_window("Simulation", 0, 0, 0.2, 0.3) as w:
+    global allow_large_n, logging_enabled, logged_id, current_page, logs
+    LEFT_BORDER = 0.3
+    with gui.sub_window("Simulation parameters", 0, 0, LEFT_BORDER, 0.25) as w:
         settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 10000)
         settings_buffer["Y"] = w.slider_float("Y", settings_buffer["Y"], 1000, 10000)
-        settings_buffer["N"] = w.slider_int("N", settings_buffer["N"], 500, 1_000_000)
+        allow_large_n = w.checkbox("Allow large N", allow_large_n)
+        if allow_large_n:
+            settings_buffer["N"] = w.slider_int(
+                "N", settings_buffer["N"], 500, 1_000_000
+            )
+        else:
+            if settings_buffer["N"] >= 50_000:
+                settings_buffer["N"] = 50_000
+            settings_buffer["N"] = w.slider_int("N", settings_buffer["N"], 500, 50_000)
         settings_buffer["R0"] = w.slider_float("R0", settings_buffer["R0"], 1.0, 10.0)
         settings_buffer["R1"] = w.slider_float("R1", settings_buffer["R1"], 10.0, 50.0)
+        settings_buffer["init_opt"] = w.slider_int(
+            "Init positions preset", settings_buffer["init_opt"], 0, 1
+        )
         if w.button("Reset"):
             reset_grid()
             initialize_positions(positions, init_opt)
 
-    with gui.sub_window("Settings", 0, 0.3, 0.2, 0.25) as w:
+    with gui.sub_window("Settings", 0, 0.25, LEFT_BORDER, 0.2) as w:
         render_rate = w.slider_int("Render rate", render_rate, 0, 100)
-        settings_buffer["init_opt"] = w.slider_int(
-            "Position preset", settings_buffer["init_opt"], 0, 1
-        )
-        if w.button("Set position preset"):
-            init_opt = settings_buffer["init_opt"]
-            initialize_positions(positions, init_opt)
-        w.text("0: Free movement\n1: Carousel\n2: Colliding")
+        speed_mult = w.slider_float("Speed", speed_mult, 0.0, 5.0)
+        w.text("0 - Free movement, 1 - Carousel, 2 - Colliding")
         update_opt = w.slider_int("Movement pattern", update_opt, 0, 2)
         speed_mult = w.slider_float("Speed", speed_mult, 0.0, 5.0)
         cursor_push_on = w.checkbox("Cursor push", cursor_push_on)
 
-        w.text("0: Euclidean\n1: Manhattan\n2: Max")
-        norm_func = w.slider_int("Distance preset", norm_func, 0, 2)
-
-    with gui.sub_window("Logs", 0.6, 0.7, 0.4, 0.3) as w:
-        if w.button("Clear"):
-            logs = []
-        logged_id = w.slider_int("Logged circle index", logged_id, 0, N - 1)
-        current_page = w.slider_int("Page", current_page, 0, len(logs) // per_page)
-        w.text("\n".join(logs[current_page * per_page : (current_page + 1) * per_page]))
+    with gui.sub_window("Logs", 0, 0.45, LEFT_BORDER, 0.55) as w:
+        logging_enabled = w.checkbox("Logging", logging_enabled)
+        if logging_enabled:
+            if w.button("Clear logs"):
+                logs = []
+            logged_id = w.slider_int("Logged circle index", logged_id, 0, N - 1)
+            current_page = w.slider_int("Page", current_page, 0, len(logs) // per_page)
+            w.text(
+                "\n".join(logs[current_page * per_page : (current_page + 1) * per_page])
+            )
 
 
 def setup_all_data():
@@ -106,16 +121,17 @@ def setup_all_data():
 
     setup_positions_data(X, Y, N)
     setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM, STANDARD_MODE)
-    setup_data_for_scene(N, R0)
+    setup_data_for_scene(X, Y, N, R0, NORM_RATIO)
 
 
 def reset_grid():
-    global X, Y, N, R0, R1, LIMIT_PER_CELL
+    global X, Y, N, R0, R1, init_opt
     X = settings_buffer["X"]
     Y = settings_buffer["Y"]
     N = settings_buffer["N"]
     R0 = settings_buffer["R0"]
     R1 = settings_buffer["R1"]
+    init_opt = settings_buffer["init_opt"]
 
     setup_all_data()
 
@@ -126,7 +142,7 @@ cursor_pos_field = ti.Vector.field(2, dtype=ti.f32, shape=1)
 def main():
     window = ti.ui.Window(
         "Catradar: cat interaction simulation",
-        res=(window_resol_x, window_resol_y),
+        res=(init_resol_x, init_resol_y),
         fps_limit=60,
         vsync=True,
     )
@@ -135,7 +151,7 @@ def main():
     camera = ti.ui.make_camera()
 
     # Изначальная позиция камеры
-    camera_pos = np.array([0.5, 0.5, 2.0])
+    camera_pos = np.array([0.3, 0.5, 1.5])
     # Камера изначально "смотрит" по оси Z
     camera_dir = np.array([0.0, 0.0, -1.0])
     # Вектор "вверх"
@@ -202,7 +218,7 @@ def main():
             cursor_board_pos[1] = (
                 ws[1] * (cursor_pos[1] + camera_pos[1] * zoom - 0.5) / zoom
             )
-            cursor_board_pos *= window_resol_y / ws[1]
+            cursor_board_pos *= NORM_RATIO / ws[1]
             # gui.text(f"cursor {cursor_board_pos[0]} {cursor_board_pos[1]}")
 
         new_update_time = time.time()
@@ -222,19 +238,25 @@ def main():
 
         trace(
             lambda: compute_states(
-                positions, states, intersections, update_opt == 2, norm_func, logged_id
+                positions,
+                states,
+                intersections,
+                update_opt == 2,
+                norm_func,
+                logged_id if logging_enabled else -1,
             ),
             "compute_states",
         )
         trace(lambda: update_logs(logged_id, logs), "collect_logs")
+        trace(lambda: draw_borders(scene),"draw_borders")
+
         draw_circles(
             scene,
             positions,
             states,
-            logged_id,
+            logged_id if logging_enabled else -1,
             render_rate,
-            window_resol_x,
-            window_resol_y,
+            NORM_RATIO,
             window.get_window_shape(),
         )
         if cursor_push_on and window.is_pressed(ti.GUI.LMB):

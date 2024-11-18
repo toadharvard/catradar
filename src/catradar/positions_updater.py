@@ -40,16 +40,15 @@ def initialize_data_for_pos_updaters():
 @ti.kernel
 def initialize_positions(positions: ti.template(), opt: ti.i32):
     initialize_data_for_pos_updaters()
-    if opt == 0:
-        for i in range(N):
-            positions[i] = ti.Vector([50 + ti.random() * 10, 50 + ti.random()])
-            velocities[i] = ti.Vector([10 + ti.random(), 10 + ti.random()]) * 0.5
-    if opt == 1:
-        for i in range(N):
+    for i in range(N):
+        if opt == 0:
             positions[i] = ti.Vector([ti.random() * X, ti.random() * Y])
             velocities[i] = (
                 ti.Vector([ti.random() * 100 - 50, ti.random() * 100 - 50]) * 0.01
             )
+        else:
+            positions[i] = ti.Vector([50 + ti.random() * 10, 50 + ti.random()])
+            velocities[i] = ti.Vector([10 + ti.random(), 10 + ti.random()]) * 0.5
 
 
 # Free movement
