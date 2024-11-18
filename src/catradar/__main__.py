@@ -36,6 +36,7 @@ MAX_LOGS_SIZE = 10000
 logs_overflow = False
 cur_logs_ptr = ti.field(ti.i32, shape=())
 cur_logs_ptr[None] = 0
+logs_cats = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
 logs_new_state = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
 logs_prev_state = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
 logs_who_changed = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
@@ -70,17 +71,18 @@ allow_large_n = False
 
 
 def log_str(idx: int):
+    cat_id = logs_cats[idx]
     new_state_str = state_to_str[logs_new_state[idx]]
     prev_state_str = state_to_str[logs_prev_state[idx]]
     if logs_who_changed[idx] == -1:
         return "State of {} id changed: {} -> {}".format(
-            logged_id,
+            cat_id,
             prev_state_str,
             new_state_str,
         )
     else:
         return "State of {} id changed: {} -> {} by {} id".format(
-            logged_id,
+            cat_id,
             prev_state_str,
             new_state_str,
             logs_who_changed[idx],
@@ -300,6 +302,8 @@ def main():
             global logs_overflow
             logs_overflow |= trace(
                 lambda: update_logs(
+                    logged_id,
+                    logs_cats,
                     logs_new_state,
                     logs_prev_state,
                     logs_who_changed,

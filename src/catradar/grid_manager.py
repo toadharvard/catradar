@@ -214,6 +214,8 @@ def compute_states(
 
 @ti.kernel
 def update_logs(
+    logged_id: ti.i32,
+    logs_cats_vec: ti.template(),
     new_state_vec: ti.template(),
     prev_state_vec: ti.template(),
     who_changed_id_vec: ti.template(),
@@ -226,6 +228,7 @@ def update_logs(
             overflow = True
             cur_logs_ptr[None] = 0
 
+        logs_cats_vec[cur_logs_ptr[None]] = logged_id
         new_state_vec[cur_logs_ptr[None]] = new_state[None]
         prev_state_vec[cur_logs_ptr[None]] = prev_state[None]
         who_changed_id_vec[cur_logs_ptr[None]] = who_changed_id[None]
