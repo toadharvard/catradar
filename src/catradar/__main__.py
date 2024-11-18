@@ -33,7 +33,6 @@ norm_func: ti.i32 = 0
 logging_enabled: bool = True
 logged_id: ti.i32 = 0
 MAX_LOGS_SIZE = 10000
-logs_overflow = False
 cur_logs_ptr = ti.field(ti.i32, shape=())
 cur_logs_ptr[None] = 0
 logs_cats = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
@@ -91,7 +90,7 @@ def log_str(idx: int):
 
 def draw_ui(gui: ti.ui.Gui):
     global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
-    global allow_large_n, logging_enabled, logged_id, current_page, logs_overflow
+    global allow_large_n, logging_enabled, logged_id, current_page
     LEFT_BORDER = 0.3
     with gui.sub_window("Simulation parameters", 0, 0, LEFT_BORDER, 0.25) as w:
         settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 10000)
@@ -128,35 +127,14 @@ def draw_ui(gui: ti.ui.Gui):
         if w.button(text_button):
             logging_enabled = not logging_enabled
         if w.button("Clear logs"):
-            logs_overflow = False
             cur_logs_ptr[None] = 0
         logged_id = w.slider_int("Logged cat index", logged_id, 0, N - 1)
-        logs_size = MAX_LOGS_SIZE if logs_overflow else cur_logs_ptr[None]
         current_page = w.slider_int(
-            "Page", current_page, 0, max(logs_size - 1, 0) // per_page
+            "Page", current_page, 0, max(cur_logs_ptr[None] - 1, 0) // per_page
         )
-        left = cur_logs_ptr[None] - (current_page + 1) * per_page
-        if left < 0:
-            if logs_overflow:
-                left = max(left + MAX_LOGS_SIZE, cur_logs_ptr[None])
-            else:
-                left = 0
+        left = max(0, cur_logs_ptr[None] - (current_page + 1) * per_page)
         right = cur_logs_ptr[None] - current_page * per_page
-        print(logs_overflow)
-        if right < 0:
-            if logs_overflow:
-                right += MAX_LOGS_SIZE
-            else:
-                right = 0
-        if left < right:
-            lst = [log_str(i) for i in reversed(range(left, right))]
-        elif logs_overflow:
-            lst = [log_str(i) for i in reversed(range(0, right))] + [
-                log_str(i) for i in reversed(range(left, MAX_LOGS_SIZE))
-            ]
-        else:
-            lst = []
-        w.text("\n".join(lst))
+        w.text("\n".join([log_str(i) for i in reversed(range(left, right))]))
 
 
 def setup_all_data():
@@ -299,8 +277,7 @@ def main():
             "compute_states",
         )
         if logging_enabled:
-            global logs_overflow
-            logs_overflow |= trace(
+            trace(
                 lambda: update_logs(
                     logged_id,
                     logs_cats,
@@ -312,7 +289,7 @@ def main():
                 ),
                 "collect_logs",
             )
-        trace(lambda: draw_borders(scene), "draw_borders")
+        trace(lambda: draw_borders(scene, render_rate), "draw_borders")
 
         draw_circles(
             scene,

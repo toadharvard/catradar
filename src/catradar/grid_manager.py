@@ -221,11 +221,9 @@ def update_logs(
     who_changed_id_vec: ti.template(),
     cur_logs_ptr: ti.template(),
     max_sz: ti.i32,
-) -> bool:
-    overflow = False
+):
     if new_state[None] != prev_state[None]:
         if cur_logs_ptr[None] == max_sz:
-            overflow = True
             cur_logs_ptr[None] = 0
 
         logs_cats_vec[cur_logs_ptr[None]] = logged_id
@@ -233,5 +231,3 @@ def update_logs(
         prev_state_vec[cur_logs_ptr[None]] = prev_state[None]
         who_changed_id_vec[cur_logs_ptr[None]] = who_changed_id[None]
         cur_logs_ptr[None] += 1
-
-    return overflow
