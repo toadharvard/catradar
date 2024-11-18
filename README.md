@@ -72,10 +72,9 @@ rye test
 
 ## Использованные инструменты
 
-Для реализации симуляции и GUI был выбран [taichi](https://github.com/taichi-dev/taichi).
-```text
+Для реализации симуляции и GUI был выбран [taichi](https://github.com/taichi-dev/taichi). Вот так авторы описывают свой инструмент:
+
 Taichi Lang is an open-source, imperative, parallel programming language for high-performance numerical computation. It is embedded in Python and uses just-in-time (JIT) compiler frameworks, for example LLVM, to offload the compute-intensive Python code to the native GPU or CPU instructions.
-```
 
 ## Лицензия
 Код распространяется под лицензией MIT. Подробнее в файле [LICENCE](./LICENCE).
