@@ -1,7 +1,10 @@
+import os
+
 import taichi as ti
 
-ti.init(arch=ti.gpu)
-
-
-def hello() -> str:
-    return "Hello from catradar!"
+if os.environ.get("GITHUB_ACTIONS") == "true":
+    print("Testing mode, running on the cpu")
+    ti.init(arch=ti.cpu, debug=True)
+else:
+    print("Standard mode, running on the gpu")
+    ti.init(arch=ti.gpu)

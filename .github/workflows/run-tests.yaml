@@ -25,4 +25,4 @@ jobs:
         run: rye sync
 
       - name: Run tests
-        run: rye test
+        run: rye test -- -vv -s

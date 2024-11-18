@@ -15,8 +15,10 @@ from catradar.common import (
     STATE_INTERSECTION,
     STATE_INTERACT,
     state_to_str,
+    TESTING_MODE,
 )
 
+EPS: ti.f32 = 1e-8
 X: ti.f32
 Y: ti.f32
 N: ti.i32
@@ -27,6 +29,7 @@ grid_cell_size: ti.i32  # the length and height of each grid cell (cells are squ
 cell_count_x = ti.i32  # count of cells by X coordinate
 cell_count_y = ti.i32  # count of cells by Y coordinate
 INTERSECTION_NUM: ti.i32
+MODE: ti.i32
 
 circles_per_cell = NotImplemented  # count of circles per cell of grid
 column_sum = NotImplemented  # prefix sums for each column of circles_per_cell
@@ -49,8 +52,9 @@ def setup_grid_data(
     aR1: ti.f32,
     aLIMIT_PER_CELL: ti.i32,
     aINTERSECTION_NUM: ti.i32,
+    aMODE: ti.i32,
 ):
-    global X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM
+    global X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM, MODE
     X = aX
     Y = aY
     N = aN
@@ -58,6 +62,7 @@ def setup_grid_data(
     R1 = aR1
     LIMIT_PER_CELL = aLIMIT_PER_CELL
     INTERSECTION_NUM = aINTERSECTION_NUM
+    MODE = aMODE
 
     global grid_cell_size, cell_count_x, cell_count_y
     grid_cell_size = R1
@@ -183,17 +188,19 @@ def compute_states(
 
                                 if intersect_len == INTERSECTION_NUM:
                                     break  # Exit early for performance
-                        elif dist <= R1:
-                            prob = 1.0 / (dist * dist)
-                            if ti.random() < prob:
+                        elif dist <= R1 and state != STATE_INTERSECTION:
+                            temp = dist - R0 * 0.75 + EPS
+                            prob = 1 if MODE == TESTING_MODE else 1.0 / (temp * temp)
+                            if ti.random() <= prob:
                                 state = STATE_INTERACT
                                 if logged_id == i:
                                     logs_who_changed_id[None] = j
 
-                    if state == STATE_INTERSECTION and (
-                        not update_intersections or intersect_len == INTERSECTION_NUM
-                    ):
-                        break
+                if state == STATE_INTERSECTION and (
+                    not update_intersections or intersect_len == INTERSECTION_NUM
+                ):
+                    break
+
             if state == STATE_INTERSECTION and (
                 not update_intersections or intersect_len == INTERSECTION_NUM
             ):
