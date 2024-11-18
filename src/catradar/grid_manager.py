@@ -15,6 +15,7 @@ from catradar.common import (
     STATE_INTERSECTION,
     STATE_INTERACT,
     TESTING_MODE,
+    state_to_str,
 )
 
 EPS: ti.f32 = 1e-8
@@ -38,9 +39,9 @@ list_cur = NotImplemented
 list_tail = NotImplemented
 circles_id = NotImplemented
 
-new_state = ti.field(ti.i32, shape=())
-prev_state = ti.field(ti.i32, shape=())
-who_changed_id = ti.field(ti.i32, shape=())
+logs_new_state = ti.field(ti.i32, shape=())
+logs_prev_state = ti.field(ti.i32, shape=())
+logs_who_changed_id = ti.field(ti.i32, shape=())
 
 
 def setup_grid_data(
@@ -159,7 +160,7 @@ def compute_states(
         intersect_len = 0
 
         if logged_id == i:
-            who_changed_id[None] = -1  # Initially, no one changed state of idx
+            logs_who_changed_id[None] = -1  # Initially, no one changed state of idx
 
         for neigh_x in range(x_begin, x_end):
             for neigh_y in range(y_begin, y_end):
@@ -177,7 +178,7 @@ def compute_states(
                         if dist <= R0:
                             state = STATE_INTERSECTION
                             if logged_id == i:
-                                who_changed_id[None] = j
+                                logs_who_changed_id[None] = j
 
                             if not update_intersections:
                                 break
@@ -193,7 +194,7 @@ def compute_states(
                             if ti.random() <= prob:
                                 state = STATE_INTERACT
                                 if logged_id == i:
-                                    who_changed_id[None] = j
+                                    logs_who_changed_id[None] = j
 
                 if state == STATE_INTERSECTION and (
                     not update_intersections or intersect_len == INTERSECTION_NUM
@@ -206,28 +207,29 @@ def compute_states(
                 break
 
         if logged_id == i:
-            prev_state[None] = states[i]
-            new_state[None] = state
+            logs_prev_state[None] = states[i]
+            logs_new_state[None] = state
         states[i] = state
         intersections[i, 0] = intersect_len
 
 
-@ti.kernel
-def update_logs(
-    logged_id: ti.i32,
-    logs_cats_vec: ti.template(),
-    new_state_vec: ti.template(),
-    prev_state_vec: ti.template(),
-    who_changed_id_vec: ti.template(),
-    cur_logs_ptr: ti.template(),
-    max_sz: ti.i32,
-):
-    if new_state[None] != prev_state[None]:
-        if cur_logs_ptr[None] == max_sz:
-            cur_logs_ptr[None] = 0
-
-        logs_cats_vec[cur_logs_ptr[None]] = logged_id
-        new_state_vec[cur_logs_ptr[None]] = new_state[None]
-        prev_state_vec[cur_logs_ptr[None]] = prev_state[None]
-        who_changed_id_vec[cur_logs_ptr[None]] = who_changed_id[None]
-        cur_logs_ptr[None] += 1
+def update_logs(logged_id, logs):
+    if logs_new_state[None] == logs_prev_state[None]:
+        return
+    if logs_who_changed_id[None] == -1:
+        logs.append(
+            "State of {} id changed: {} -> {}".format(
+                logged_id,
+                state_to_str[logs_prev_state[None]],
+                state_to_str[logs_new_state[None]],
+            )
+        )
+        return
+    logs.append(
+        "State of {} id changed: {} -> {} by {} id".format(
+            logged_id,
+            state_to_str[logs_prev_state[None]],
+            state_to_str[logs_new_state[None]],
+            logs_who_changed_id[None],
+        )
+    )

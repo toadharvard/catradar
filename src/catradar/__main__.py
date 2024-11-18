@@ -30,15 +30,10 @@ speed_mult: ti.f32 = 1
 render_rate: ti.i32 = 100
 norm_func: ti.i32 = 0
 # Logging
-logging_enabled: bool = True
+show_logs = True
+compute_logs: bool = True
 logged_id: ti.i32 = 0
-MAX_LOGS_SIZE = 10000
-cur_logs_ptr = ti.field(ti.i32, shape=())
-cur_logs_ptr[None] = 0
-logs_cats = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
-logs_new_state = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
-logs_prev_state = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
-logs_who_changed = ti.field(dtype=ti.i32, shape=MAX_LOGS_SIZE)
+logs = []
 current_page = 0
 per_page = 50
 
