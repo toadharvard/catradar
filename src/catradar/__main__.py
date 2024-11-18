@@ -64,28 +64,9 @@ settings_buffer = {
 allow_large_n = False
 
 
-def log_str(idx: int):
-    cat_id = logs_cats[idx]
-    new_state_str = state_to_str[logs_new_state[idx]]
-    prev_state_str = state_to_str[logs_prev_state[idx]]
-    if logs_who_changed[idx] == -1:
-        return "State of {} id changed: {} -> {}".format(
-            cat_id,
-            prev_state_str,
-            new_state_str,
-        )
-    else:
-        return "State of {} id changed: {} -> {} by {} id".format(
-            cat_id,
-            prev_state_str,
-            new_state_str,
-            logs_who_changed[idx],
-        )
-
-
 def draw_ui(gui: ti.ui.Gui):
     global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
-    global allow_large_n, logging_enabled, logged_id, current_page
+    global allow_large_n, logged_id, current_page
     LEFT_BORDER = 0.3
     with gui.sub_window("Simulation parameters", 0, 0, LEFT_BORDER, 0.25) as w:
         settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 10000)
@@ -117,19 +98,23 @@ def draw_ui(gui: ti.ui.Gui):
         norm_func = w.slider_int("Distance function preset", norm_func, 0, 2)
         cursor_push_on = w.checkbox("Allow cursor push", cursor_push_on)
 
+    global show_logs, compute_logs, logs
     with gui.sub_window("Logging", 0, 0.45, LEFT_BORDER, 0.55) as w:
-        text_button = "Pause" if logging_enabled else "Continue"
-        if w.button(text_button):
-            logging_enabled = not logging_enabled
-        if w.button("Clear logs"):
-            cur_logs_ptr[None] = 0
-        logged_id = w.slider_int("Logged cat index", logged_id, 0, N - 1)
-        current_page = w.slider_int(
-            "Page", current_page, 0, max(cur_logs_ptr[None] - 1, 0) // per_page
-        )
-        left = max(0, cur_logs_ptr[None] - (current_page + 1) * per_page)
-        right = cur_logs_ptr[None] - current_page * per_page
-        w.text("\n".join([log_str(i) for i in reversed(range(left, right))]))
+        show_logs = w.checkbox("Show logs", show_logs)
+        if show_logs:
+            text_button = "Freeze" if compute_logs else "Unfreeze"
+            if w.button(text_button):
+                compute_logs = not compute_logs
+            if w.button("Clear logs"):
+                logs = []
+            logged_id = w.slider_int("Logged cat index", logged_id, 0, N - 1)
+            logs_sz = len(logs)
+            current_page = w.slider_int(
+                "Page", current_page, 0, max(logs_sz - 1, 0) // per_page
+            )
+            left = max(0, logs_sz - (current_page + 1) * per_page)
+            right = logs_sz - current_page * per_page - 1
+            w.text("\n".join(reversed(logs[left : right - 1])))
 
 
 def setup_all_data():
@@ -267,30 +252,20 @@ def main():
                 intersections,
                 update_opt == 2,
                 norm_func,
-                logged_id if logging_enabled else -1,
+                logged_id if compute_logs else -1,
             ),
             "compute_states",
         )
-        if logging_enabled:
-            trace(
-                lambda: update_logs(
-                    logged_id,
-                    logs_cats,
-                    logs_new_state,
-                    logs_prev_state,
-                    logs_who_changed,
-                    cur_logs_ptr,
-                    MAX_LOGS_SIZE,
-                ),
-                "collect_logs",
-            )
+        if compute_logs:
+            trace(lambda: update_logs(logged_id, logs), "collect_logs")
+
         trace(lambda: draw_borders(scene, render_rate), "draw_borders")
 
         draw_circles(
             scene,
             positions,
             states,
-            logged_id if logging_enabled else -1,
+            logged_id if show_logs else -1,
             render_rate,
             NORM_RATIO,
             window.get_window_shape(),
