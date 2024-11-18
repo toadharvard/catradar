@@ -6,7 +6,6 @@ from catradar.grid_manager import _calc_dist, setup_grid_data, compute_states
 from catradar.positions_updater import setup_positions_data, initialize_positions
 
 
-# Compute only STATE_INTERSECTION states because state STATE_INTERACT is randomized and will not be tested
 @ti.kernel
 def naive_algo(
     N: ti.i32,
@@ -69,6 +68,7 @@ THRESHOLD = 0.01
         ),  # A lot of cats, big grid
     ],
 )
+
 def test_compute_states(
     N: ti.i32,
     X: ti.f32,
