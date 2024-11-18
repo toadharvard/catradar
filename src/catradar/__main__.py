@@ -1,7 +1,7 @@
 import time
 import taichi as ti
 import numpy as np
-from catradar.common import STANDARD_MODE, state_to_str
+from catradar.common import STANDARD_MODE
 import tkinter as tk
 
 from catradar.utils import trace
