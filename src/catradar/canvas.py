@@ -72,9 +72,8 @@ def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32):
     border_vertices[3] = ti.Vector([-R, Y + R, 0])
 
 
-def draw_borders(scene: ti.ui.Scene, render_rate: ti.i32):
-    if render_rate > 0:
-        scene.lines(vertices=border_vertices, indices=border_indices, width=2)
+def draw_borders(scene: ti.ui.Scene):
+    scene.lines(vertices=border_vertices, indices=border_indices, width=2)
 
 
 def draw_circles(

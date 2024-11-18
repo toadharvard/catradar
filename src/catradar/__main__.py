@@ -31,11 +31,13 @@ render_rate: ti.i32 = 100
 norm_func: ti.i32 = 0
 # Logging
 show_logs = True
-compute_logs: bool = True
+print_logs = True
 logged_id: ti.i32 = 0
 logs = []
 current_page = 0
 per_page = 50
+# Borders (UI)
+show_borders = True
 
 # Get resolution of user screen
 root = tk.Tk()
@@ -68,7 +70,7 @@ def draw_ui(gui: ti.ui.Gui):
     global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
     global allow_large_n, logged_id, current_page
     LEFT_BORDER = 0.3
-    with gui.sub_window("Simulation parameters", 0, 0, LEFT_BORDER, 0.25) as w:
+    with gui.sub_window("Simulation parameters", 0, 0, LEFT_BORDER, 0.22) as w:
         settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 10000)
         settings_buffer["Y"] = w.slider_float("Y", settings_buffer["Y"], 1000, 10000)
         allow_large_n = w.checkbox("Allow large N", allow_large_n)
@@ -89,7 +91,8 @@ def draw_ui(gui: ti.ui.Gui):
             reset_grid()
             initialize_positions(positions, init_opt)
 
-    with gui.sub_window("Settings", 0, 0.25, LEFT_BORDER, 0.2) as w:
+    global show_logs, print_logs, logs, show_borders
+    with gui.sub_window("Settings", 0, 0.22, LEFT_BORDER, 0.23) as w:
         render_rate = w.slider_int("Render rate", render_rate, 0, 100)
         speed_mult = w.slider_float("Speed", speed_mult, 0.0, 5.0)
         w.text("0 - Free movement, 1 - Carousel, 2 - Colliding")
@@ -97,14 +100,16 @@ def draw_ui(gui: ti.ui.Gui):
         w.text("0 - Euclidean, 1 - Manhattan, 2 - Max")
         norm_func = w.slider_int("Distance function preset", norm_func, 0, 2)
         cursor_push_on = w.checkbox("Allow cursor push", cursor_push_on)
-
-    global show_logs, compute_logs, logs
-    with gui.sub_window("Logging", 0, 0.45, LEFT_BORDER, 0.55) as w:
+        show_borders = w.checkbox("Show borders", show_borders)
         show_logs = w.checkbox("Show logs", show_logs)
-        if show_logs:
-            text_button = "Freeze" if compute_logs else "Unfreeze"
+        if not show_logs:
+            print_logs = True
+
+    if show_logs:
+        with gui.sub_window("Logging", 0, 0.45, LEFT_BORDER, 0.55) as w:
+            text_button = "Pause" if print_logs else "Continue"
             if w.button(text_button):
-                compute_logs = not compute_logs
+                print_logs = not print_logs
             if w.button("Clear logs"):
                 logs = []
             logged_id = w.slider_int("Logged cat index", logged_id, 0, N - 1)
@@ -252,14 +257,14 @@ def main():
                 intersections,
                 update_opt == 2,
                 norm_func,
-                logged_id if compute_logs else -1,
+                logged_id if (show_logs and print_logs) else -1,
             ),
             "compute_states",
         )
-        if compute_logs:
+        if show_logs and print_logs:
             trace(lambda: update_logs(logged_id, logs), "collect_logs")
-
-        trace(lambda: draw_borders(scene, render_rate), "draw_borders")
+        if show_borders:
+            trace(lambda: draw_borders(scene), "draw_borders")
 
         draw_circles(
             scene,
