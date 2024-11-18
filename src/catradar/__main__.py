@@ -93,7 +93,8 @@ def draw_ui(gui: ti.ui.Gui):
         speed_mult = w.slider_float("Speed", speed_mult, 0.0, 5.0)
         w.text("0 - Free movement, 1 - Carousel, 2 - Colliding")
         update_opt = w.slider_int("Movement pattern", update_opt, 0, 2)
-        speed_mult = w.slider_float("Speed", speed_mult, 0.0, 5.0)
+        w.text("0 - Euclidean, 1 - Manhattan, 2 - Max")
+        norm_func = w.slider_int("Distance function preset", norm_func, 0, 2)
         cursor_push_on = w.checkbox("Cursor push", cursor_push_on)
 
     with gui.sub_window("Logs", 0, 0.45, LEFT_BORDER, 0.55) as w:
@@ -248,7 +249,7 @@ def main():
             "compute_states",
         )
         trace(lambda: update_logs(logged_id, logs), "collect_logs")
-        trace(lambda: draw_borders(scene),"draw_borders")
+        trace(lambda: draw_borders(scene), "draw_borders")
 
         draw_circles(
             scene,
