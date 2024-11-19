@@ -14,8 +14,8 @@ from catradar.common import (
     STATE_IDLE,
     STATE_INTERSECTION,
     STATE_INTERACT,
-    state_to_str,
     TESTING_MODE,
+    state_to_str,
 )
 
 EPS: ti.f32 = 1e-8
@@ -39,8 +39,8 @@ list_cur = NotImplemented
 list_tail = NotImplemented
 circles_id = NotImplemented
 
-logs_prev_state = ti.field(ti.i32, shape=())
 logs_new_state = ti.field(ti.i32, shape=())
+logs_prev_state = ti.field(ti.i32, shape=())
 logs_who_changed_id = ti.field(ti.i32, shape=())
 
 
