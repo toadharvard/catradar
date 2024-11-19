@@ -71,12 +71,12 @@ def draw_ui(gui: ti.ui.Gui):
     global allow_large_n, logged_id, current_page
     LEFT_BORDER = 0.3
     with gui.sub_window("Simulation parameters", 0, 0, LEFT_BORDER, 0.22) as w:
-        settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 10000)
-        settings_buffer["Y"] = w.slider_float("Y", settings_buffer["Y"], 1000, 10000)
+        settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 25000)
+        settings_buffer["Y"] = w.slider_float("Y", settings_buffer["Y"], 1000, 25000)
         allow_large_n = w.checkbox("Allow large N", allow_large_n)
         if allow_large_n:
             settings_buffer["N"] = w.slider_int(
-                "N", settings_buffer["N"], 500, 1_000_000
+                "N", settings_buffer["N"], 500, 5_000_000
             )
         else:
             if settings_buffer["N"] >= 50_000:
