@@ -16,3 +16,8 @@ state_to_str = {
 # Modes of running program
 STANDARD_MODE = 0
 TESTING_MODE = 1
+
+# Movement pattern
+MOVE_PATTERN_FREE = 0
+MOVE_PATTERN_CAROUSEL = 1
+MOVE_PATTERN_COLLIDING = 2
