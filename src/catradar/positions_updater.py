@@ -1,6 +1,12 @@
 import taichi as ti
 from math import pi
 
+from catradar.common import (
+    MOVE_PATTERN_CAROUSEL,
+    MOVE_PATTERN_COLLIDING,
+    MOVE_PATTERN_FREE,
+)
+
 __all__ = ["setup_positions_data", "initialize_positions", "update_positions"]
 
 # movement pattern 1 global vars
@@ -51,17 +57,15 @@ def initialize_positions(positions: ti.template(), opt: ti.i32):
             velocities[i] = ti.Vector([10 + ti.random(), 10 + ti.random()]) * 0.5
 
 
-# Free movement
 @ti.kernel
-def movement_pattern_0(
+def movement_patter_free(
     positions: ti.template(),  # Need to pass temp argument because taichi does not evaluate this otherwise
 ):
     pass
 
 
-# Carousel
 @ti.kernel
-def movement_pattern_1(
+def movement_pattern_carousel(
     positions: ti.template(),  # Need to pass temp argument because taichi does not evaluate this otherwise
 ):
     for i in range(N):
@@ -70,9 +74,8 @@ def movement_pattern_1(
         velocities[i][1] = ti.sin(p1_angles[i]) * p1_speeds[i]
 
 
-# Colliding
 @ti.kernel
-def movement_pattern_2(positions: ti.template(), intersections: ti.template()):
+def movement_pattern_colliding(positions: ti.template(), intersections: ti.template()):
     for i in range(N):
         self_pos = positions[i]
         force = ti.math.vec2(0.0, 0.0)
@@ -130,12 +133,12 @@ def update_positions(
     opt: ti.i32,
     dt: ti.f32,
 ):
-    if opt == 0:
-        movement_pattern_0(positions)
-    if opt == 1:
-        movement_pattern_1(positions)
-    if opt == 2:
-        movement_pattern_2(positions, intersections)
+    if opt == MOVE_PATTERN_FREE:
+        movement_patter_free(positions)
+    if opt == MOVE_PATTERN_CAROUSEL:
+        movement_pattern_carousel(positions)
+    if opt == MOVE_PATTERN_COLLIDING:
+        movement_pattern_colliding(positions, intersections)
 
     if cursor_push_on:
         cursor_push(positions, cursor_pos)
