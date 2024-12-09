@@ -73,7 +73,7 @@ allow_large_n = False
 
 def draw_ui(gui: ti.ui.Gui):
     global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
-    global allow_large_n, logged_id, current_page
+    global allow_large_n, logged_id, current_page, is_3rd_person_view
     LEFT_BORDER = 0.3
     with gui.sub_window("Simulation parameters", 0, 0, LEFT_BORDER, 0.22) as w:
         settings_buffer["X"] = w.slider_float("X", settings_buffer["X"], 1000, 25000)
@@ -104,13 +104,16 @@ def draw_ui(gui: ti.ui.Gui):
         update_opt = w.slider_int("Movement pattern", update_opt, 0, 2)
         w.text("0 - Euclidean, 1 - Manhattan, 2 - Max")
         norm_func = w.slider_int("Distance function preset", norm_func, 0, 2)
-        cursor_push_on = w.checkbox("Allow cursor push", cursor_push_on)
+        if not is_3rd_person_view:
+            cursor_push_on = w.checkbox("Allow cursor push", cursor_push_on)
+        else:
+            cursor_push_on = False
+
         show_borders = w.checkbox("Show borders", show_borders)
         show_logs = w.checkbox("Show logs", show_logs)
         if not show_logs:
             print_logs = True
 
-    global is_3rd_person_view
     if show_logs:
         with gui.sub_window("Logging", 0, 0.45, LEFT_BORDER, 0.55) as w:
             text_button = "Pause" if print_logs else "Continue"
