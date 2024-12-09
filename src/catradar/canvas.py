@@ -115,11 +115,11 @@ def draw_bottom(scene: ti.ui.Scene):
     scene.mesh(
         vertices=border_vertices,
         indices=bottom_indices,
-        color=(0.25, 0.5, 0.25),
+        color=(0.4, 0.4, 0.4),
         two_sided=True,
     )
 
-    scene.lines(vertices=navigate_grid_vertices, color=(0, 0, 0), width=3)
+    scene.lines(vertices=navigate_grid_vertices, color=(1, 1, 1), width=1)
 
 
 def draw_circles(
