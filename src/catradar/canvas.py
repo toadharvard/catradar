@@ -7,8 +7,6 @@ from catradar.common import (
 )
 from catradar.utils import trace
 
-NAVIGATE_GRID_SIZE = 0.01
-
 N: ti.i32
 R0: ti.f32
 
@@ -40,7 +38,7 @@ __all__ = [
 
 
 def setup_data_for_scene(
-    aX: ti.f32, aY: ti.f32, aN: ti.i32, aR0: ti.f32, norm_ratio: ti.f32
+    aX: ti.f32, aY: ti.f32, aN: ti.i32, aR0: ti.f32, aR1: ti.f32, norm_ratio: ti.f32
 ):
     global N, R0
     N = aN
@@ -50,7 +48,9 @@ def setup_data_for_scene(
     positions_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
     colors_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
 
-    fill_vertices(aX / norm_ratio, aY / norm_ratio, R0 / norm_ratio / 2)
+    fill_vertices(
+        aX / norm_ratio, aY / norm_ratio, R0 / norm_ratio / 2, aR1 / norm_ratio
+    )
 
 
 @ti.kernel
@@ -78,29 +78,30 @@ def update_colors(
 
 
 # @ti.kernel
-def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32):
+def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32, R1: ti.f32):
     border_vertices[0] = ti.Vector([-R, -R, 0])
     border_vertices[1] = ti.Vector([X + R, -R, 0])
     border_vertices[2] = ti.Vector([X + R, Y + R, 0])
     border_vertices[3] = ti.Vector([-R, Y + R, 0])
 
     global navigate_grid_vertices
-    x_lines_count = int(X // NAVIGATE_GRID_SIZE)
-    y_lines_count = int(Y // NAVIGATE_GRID_SIZE)
+    NAVIGATE_GRID_SIZE = R1
+    x_lines_count = int(X // NAVIGATE_GRID_SIZE) + 2
+    y_lines_count = int(Y // NAVIGATE_GRID_SIZE) + 2
     navigate_grid_vertices = ti.Vector.field(
         3, dtype=ti.f32, shape=(x_lines_count + y_lines_count) * 2
     )
     c = 0
 
     for i in range(x_lines_count):
-        x = i * NAVIGATE_GRID_SIZE
+        x = ti.min(i * NAVIGATE_GRID_SIZE, X)
         navigate_grid_vertices[c] = ti.Vector([x, 0, 0])
         c += 1
         navigate_grid_vertices[c] = ti.Vector([x, Y, 0])
         c += 1
 
     for i in range(y_lines_count):
-        y = i * NAVIGATE_GRID_SIZE
+        y = ti.min(i * NAVIGATE_GRID_SIZE, Y)
         navigate_grid_vertices[c] = ti.Vector([0, y, 0])
         c += 1
         navigate_grid_vertices[c] = ti.Vector([X, y, 0])

@@ -144,7 +144,7 @@ def setup_all_data():
 
     setup_positions_data(X, Y, N)
     setup_grid_data(X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM, STANDARD_MODE)
-    setup_data_for_scene(X, Y, N, R0, NORM_RATIO)
+    setup_data_for_scene(X, Y, N, R0, R1, NORM_RATIO)
 
 
 def reset_grid():
