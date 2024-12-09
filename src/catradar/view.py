@@ -12,8 +12,10 @@ up_vector = np.array([0.0, 1.0, 0.0])
 right_vector = np.array([-1.0, 0.0, 0.0])
 
 
-# Изначальная позиция камеры
+# Изначальная позиция для обычной камеры
 default_camera_pos = np.array([0.3, 0.5, 1.5])
+
+third_person_prev_angle = 0.0
 
 
 def default_camera_mover(window: ti.ui.Window, camera_pos: np.ndarray):
@@ -55,11 +57,16 @@ def default_camera_set(scene: ti.ui.Scene, camera_pos: np.ndarray):
 
 
 def cat_camera(scene: ti.ui.Scene, norm_ratio, prev_pos, pos):
+    global third_person_prev_angle
     if prev_pos[0] != ti.math.nan:
         dif = prev_pos - pos
         x = pos[0] / norm_ratio
         y = pos[1] / norm_ratio
         angle = ti.math.atan2(dif[0], dif[1])
+        if angle == 0:  # if position didn't update, we would want to save old angle
+            angle = third_person_prev_angle
+
+        third_person_prev_angle = angle
         cos = ti.math.cos(angle)
         sin = ti.math.sin(angle)
 
@@ -76,8 +83,6 @@ def cat_camera(scene: ti.ui.Scene, norm_ratio, prev_pos, pos):
         )
         camera.up(0, 0, 1)
         scene.set_camera(camera)
-        return angle / ti.math.pi * 180
-    return 0
 
 
 def default_view(scene: ti.ui.Scene, window: ti.ui.Window):
