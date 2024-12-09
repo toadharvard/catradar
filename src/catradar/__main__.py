@@ -1,13 +1,11 @@
 import time
 import taichi as ti
-import numpy as np
 from catradar.common import STANDARD_MODE
 import tkinter as tk
 
 from catradar.utils import trace
 
 from catradar.canvas import (
-    draw_bottom,
     draw_circles,
     setup_data_for_scene,
     draw_borders,
@@ -19,6 +17,7 @@ from catradar.positions_updater import (
     setup_positions_data,
 )
 from catradar.grid_manager import compute_states, setup_grid_data, update_logs
+from catradar.view import camera, default_view, third_person_view
 
 # Grid parameters
 X: ti.f32 = 1000
@@ -41,6 +40,7 @@ logged_id: ti.i32 = 0
 logs = []
 current_page = 0
 per_page = 50
+is_3rd_person_view = False  # for logged cat
 # Borders (UI)
 show_borders = True
 
@@ -110,6 +110,7 @@ def draw_ui(gui: ti.ui.Gui):
         if not show_logs:
             print_logs = True
 
+    global is_3rd_person_view
     if show_logs:
         with gui.sub_window("Logging", 0, 0.45, LEFT_BORDER, 0.55) as w:
             text_button = "Pause" if print_logs else "Continue"
@@ -118,6 +119,7 @@ def draw_ui(gui: ti.ui.Gui):
             if w.button("Clear"):
                 logs = []
             logged_id = w.slider_int("Logged cat index", logged_id, 0, N - 1)
+            is_3rd_person_view = w.checkbox("Track logged cat", is_3rd_person_view)
             logs_sz = len(logs)
             current_page = w.slider_int(
                 "Page", current_page, 0, max(logs_sz - 1, 0) // per_page
@@ -125,17 +127,8 @@ def draw_ui(gui: ti.ui.Gui):
             left = max(0, logs_sz - (current_page + 1) * per_page)
             right = logs_sz - current_page * per_page - 1
             w.text("\n".join(reversed(logs[left : right - 1])))
-
-
-angle = 0.0
-is_3rd_person_view = False
-
-
-def draw_3rd_person_view(gui: ti.ui.Gui, camera: ti.ui.Camera):
-    global angle, is_3rd_person_view
-    with gui.sub_window("Camera", 0.3, 0, 0.3, 0.3) as w:
-        is_3rd_person_view = w.checkbox("activate", is_3rd_person_view)
-        w.slider_float("angle", angle, -180, 180)
+    else:
+        is_3rd_person_view = False
 
 
 def setup_all_data():
@@ -169,28 +162,6 @@ def reset_grid():
 cursor_pos_field = ti.Vector.field(2, dtype=ti.f32, shape=1)
 
 
-def cat_camera(scene: ti.ui.Scene, camera: ti.ui.Camera, prev_pos, pos):
-    global angle, is_3rd_person_view
-    if prev_pos[0] != ti.math.nan:
-        dif = prev_pos - pos
-        x = pos[0] / 1000
-        y = pos[1] / 1000
-        angle = ti.math.atan2(dif[0], dif[1])
-        cos = ti.math.cos(angle)
-        sin = ti.math.sin(angle)
-
-        camera.position(x + sin * 0.1, y + cos * 0.1, 0.1)
-        camera.lookat(
-            x,
-            y,
-            0,
-        )
-        camera.up(0, 0, 1)
-        scene.set_camera(camera)
-        return angle / ti.math.pi * 180
-    return 0
-
-
 def main():
     window = ti.ui.Window(
         "Catradar: cat interaction simulation",
@@ -200,18 +171,7 @@ def main():
     )
     canvas = window.get_canvas()
     scene = window.get_scene()
-    camera = ti.ui.make_camera()
 
-    # Изначальная позиция камеры
-    camera_pos = np.array([0.3, 0.5, 1.5])
-    # Камера изначально "смотрит" по оси Z
-    camera_dir = np.array([0.0, 0.0, -1.0])
-    # Вектор "вверх"
-    up_vector = np.array([0.0, 1.0, 0.0])
-    right_vector = np.cross(up_vector, camera_dir)
-    right_vector = right_vector / np.linalg.norm(right_vector)
-
-    # scene.ambient_light((0.5, 0.5, 0.5))
     gui = window.get_gui()
 
     setup_all_data()
@@ -221,43 +181,30 @@ def main():
     prev_logged_pos = ti.Vector([ti.math.nan, ti.math.nan])
 
     while window.running:
-        speed = 0.01 * camera_pos[2]  # Скорость перемещения камеры
+        if not is_3rd_person_view:
+            trace(
+                lambda: default_view(scene, window),
+                "default_view",
+            )
+        else:
+            trace(
+                lambda: third_person_view(
+                    scene, NORM_RATIO, prev_logged_pos, positions[logged_id]
+                ),
+                "third_person_view",
+            )
 
-        if window.is_pressed("q"):
-            # Перемещаем камеру вперед
-            camera_pos += camera_dir * speed
-        if window.is_pressed("e"):
-            # Перемещаем камеру назад
-            camera_pos -= camera_dir * speed
-
-        if window.is_pressed("a"):
-            # Перемещаем камеру влево
-            camera_pos += right_vector * speed
-        if window.is_pressed("d"):
-            # Перемещаем камеру вправо
-            camera_pos -= right_vector * speed
-
-        if window.is_pressed("w"):
-            # Перемещаем камеру вверх
-            camera_pos += up_vector * speed
-        if window.is_pressed("s"):
-            # Перемещаем камеру вниз
-            camera_pos -= up_vector * speed
-        camera_pos[2] = max(camera_pos[2], 0.2)
-
-        # Устанавливаем новую позицию камеры
-        camera.position(camera_pos[0], camera_pos[1], camera_pos[2])
-        camera.lookat(
-            camera_pos[0] + camera_dir[0],
-            camera_pos[1] + camera_dir[1],
-            camera_pos[2] + camera_dir[2],
-        )
-        camera.up(up_vector[0], up_vector[1], up_vector[2])
-        scene.set_camera(camera)
+        if logged_id > -1:
+            prev_logged_pos[0] = positions[logged_id][0]
+            prev_logged_pos[1] = positions[logged_id][1]
+        else:
+            prev_logged_pos[0] = ti.math.nan
+            prev_logged_pos[1] = ti.math.nan
 
         cursor_board_pos = ti.math.vec2(-1000, -1000)
         # cursor info
         if window.is_pressed(ti.GUI.LMB):
+            camera_pos = camera.curr_position
             ws = window.get_window_shape()
             cursor_pos = window.get_cursor_pos()
             zoom = 1.2 / camera_pos[2]
@@ -287,19 +234,6 @@ def main():
             "update_positions",
         )
         prev_update_time = new_update_time
-
-        global angle, is_3rd_person_view
-        scene.point_light((0, 0, 100), (1, 1, 1))
-        if logged_id > -1:
-            if is_3rd_person_view:
-                angle = cat_camera(scene, camera, prev_logged_pos, positions[logged_id])
-                draw_bottom(scene)
-            prev_logged_pos[0] = positions[logged_id][0]
-            prev_logged_pos[1] = positions[logged_id][1]
-        else:
-            prev_logged_pos[0] = ti.math.nan
-            prev_logged_pos[1] = ti.math.nan
-        draw_3rd_person_view(gui, camera)
 
         trace(
             lambda: compute_states(
