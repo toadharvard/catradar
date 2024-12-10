@@ -250,7 +250,8 @@ def check_borders(
 
 def update_positions(
     positions,
-    borders_lst,
+    borders,
+    borders_count,
     intersections,
     cursor_pos: ti.math.vec2,
     cursor_push_on: ti.i8,
@@ -270,9 +271,4 @@ def update_positions(
 
     update_pos_on_velocity(positions, speed_mult, dt)
 
-    count = len(borders_lst)
-    if count > 0:
-        borders = ti.Vector.field(3, dtype=ti.f32, shape=count)
-        for i in range(count):
-            borders[i] = borders_lst[i]
-        check_borders(positions, count // 2, borders)
+    check_borders(positions, borders_count // 2, borders)

@@ -69,8 +69,9 @@ settings_buffer = {
 }
 allow_large_n = False
 
-drawn_borders_count = 0
+borders_count = 0
 drawn_borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
+borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
 
 
 def draw_ui(gui: ti.ui.Gui):
@@ -223,12 +224,15 @@ def process_click(window, camera_pos) -> ti.math.vec2:
                 )
                 drawn_borders_lst.append(current_point)
 
-                global drawn_borders, drawn_borders_count
+                global drawn_borders, borders_count
 
-                drawn_borders[drawn_borders_count] = current_border[0] / NORM_RATIO
-                drawn_borders_count += 1
-                drawn_borders[drawn_borders_count] = current_point / NORM_RATIO
-                drawn_borders_count += 1
+                drawn_borders[borders_count] = current_border[0] / NORM_RATIO
+                borders[borders_count] = current_border[0]
+
+                borders_count += 1
+                drawn_borders[borders_count] = current_point / NORM_RATIO
+                borders[borders_count] = current_point
+                borders_count += 1
 
                 ADDING_STATE = NO_ADDING_MODE
 
@@ -303,7 +307,8 @@ def main():
         trace(
             lambda: update_positions(
                 positions,
-                drawn_borders_lst,
+                borders,
+                borders_count,
                 intersections,
                 cursor_board_pos,
                 cursor_push_on,
@@ -330,7 +335,7 @@ def main():
             trace(lambda: update_logs(logged_id, logs), "collect_logs")
         if show_borders:
             trace(
-                lambda: draw_borders(scene, drawn_borders, drawn_borders_count),
+                lambda: draw_borders(scene, drawn_borders, borders_count),
                 "draw_borders",
             )
 
