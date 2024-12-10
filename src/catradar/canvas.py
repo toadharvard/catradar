@@ -22,11 +22,7 @@ grid_border_indices[1] = ti.Vector([1, 2])
 grid_border_indices[2] = ti.Vector([2, 3])
 grid_border_indices[3] = ti.Vector([3, 0])
 
-__all__ = [
-    "setup_data_for_scene",
-    "draw_borders",
-    "draw_circles",
-]
+__all__ = ["setup_data_for_scene", "draw_borders", "draw_circles"]
 
 
 def setup_data_for_scene(
@@ -76,16 +72,9 @@ def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32):
     grid_borders_vertices[3] = ti.Vector([-R, Y + R, 0])
 
 
-def draw_borders(scene: ti.ui.Scene, borders_lst):
+def draw_borders(scene: ti.ui.Scene, drawn_borders, drawn_borders_count):
     scene.lines(vertices=grid_borders_vertices, indices=grid_border_indices, width=2)
-
-    count = len(borders_lst)
-    if count == 0:
-        return
-    drawn_borders = ti.Vector.field(3, dtype=ti.f32, shape=count)
-    for i in range(count):
-        drawn_borders[i] = borders_lst[i] / RATIO
-    scene.lines(vertices=drawn_borders, width=2)
+    scene.lines(vertices=drawn_borders, width=2, vertex_count=drawn_borders_count)
 
 
 def draw_circles(

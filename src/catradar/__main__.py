@@ -6,7 +6,11 @@ import tkinter as tk
 
 from catradar.utils import trace
 
-from catradar.canvas import draw_circles, setup_data_for_scene, draw_borders
+from catradar.canvas import (
+    draw_circles,
+    setup_data_for_scene,
+    draw_borders,
+)
 
 from catradar.positions_updater import (
     initialize_positions,
@@ -64,6 +68,9 @@ settings_buffer = {
     "init_opt": init_opt,
 }
 allow_large_n = False
+
+drawn_borders_count = 0
+drawn_borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
 
 
 def draw_ui(gui: ti.ui.Gui):
@@ -215,6 +222,14 @@ def process_click(window, camera_pos) -> ti.math.vec2:
                     ti.Vector([current_border[0][0], current_border[0][1], 0])
                 )
                 drawn_borders_lst.append(current_point)
+
+                global drawn_borders, drawn_borders_count
+
+                drawn_borders[drawn_borders_count] = current_border[0] / NORM_RATIO
+                drawn_borders_count += 1
+                drawn_borders[drawn_borders_count] = current_point / NORM_RATIO
+                drawn_borders_count += 1
+
                 ADDING_STATE = NO_ADDING_MODE
 
 
@@ -314,7 +329,10 @@ def main():
         if show_logs and print_logs:
             trace(lambda: update_logs(logged_id, logs), "collect_logs")
         if show_borders:
-            trace(lambda: draw_borders(scene, drawn_borders_lst), "draw_borders")
+            trace(
+                lambda: draw_borders(scene, drawn_borders, drawn_borders_count),
+                "draw_borders",
+            )
 
         draw_circles(
             scene,
