@@ -122,7 +122,7 @@ def draw_ui(gui: ti.ui.Gui):
             w.text("\n".join(reversed(logs[left : right - 1])))
 
     global last_click_time, ADDING_STATE
-    with gui.sub_window("Adding new border", 0.5, 0, 0.1, 0.2) as w:
+    with gui.sub_window("Adding new border", 0.9, 0, 0.1, 0.2) as w:
         text = "Add border" if ADDING_STATE == NO_ADDING_MODE else "Cancel"
         if w.button(text):
             if ADDING_STATE == NO_ADDING_MODE:
@@ -175,7 +175,7 @@ ZERO_POINTS_ADDED = 1
 ONE_POINT_ADDED = 2
 ADDING_STATE = NO_ADDING_MODE
 # Handling clicks
-DELAY = 0.15  # in seconds
+DELAY = 0.1  # in seconds
 last_click_time = 0
 
 
@@ -202,7 +202,7 @@ def process_click(window, camera_pos) -> ti.math.vec2:
         if ADDING_STATE != NO_ADDING_MODE:
             cur_time = time.time()
             # Forbid add point in the menu bar
-            if cur_time - last_click_time < DELAY or cursor_board_pos.x < -50:
+            if cur_time - last_click_time < DELAY:
                 return
             last_click_time = cur_time
 
