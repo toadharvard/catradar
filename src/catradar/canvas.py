@@ -9,15 +9,18 @@ from catradar.utils import trace
 
 N: ti.i32
 R0: ti.f32
+RATIO: ti.i32
 
 positions_to_draw = NotImplemented
 colors_to_draw = NotImplemented
-border_vertices = ti.Vector.field(3, dtype=ti.f32, shape=4)
-border_indices = ti.Vector.field(2, dtype=ti.i32, shape=4)
-border_indices[0] = ti.Vector([0, 1])
-border_indices[1] = ti.Vector([1, 2])
-border_indices[2] = ti.Vector([2, 3])
-border_indices[3] = ti.Vector([3, 0])
+
+# Grid borders (up, bottom, left, right)
+grid_borders_vertices = ti.Vector.field(3, dtype=ti.f32, shape=4)
+grid_border_indices = ti.Vector.field(2, dtype=ti.i32, shape=4)
+grid_border_indices[0] = ti.Vector([0, 1])
+grid_border_indices[1] = ti.Vector([1, 2])
+grid_border_indices[2] = ti.Vector([2, 3])
+grid_border_indices[3] = ti.Vector([3, 0])
 
 __all__ = [
     "setup_data_for_scene",
@@ -29,9 +32,10 @@ __all__ = [
 def setup_data_for_scene(
     aX: ti.f32, aY: ti.f32, aN: ti.i32, aR0: ti.f32, norm_ratio: ti.f32
 ):
-    global N, R0
+    global N, R0, RATIO
     N = aN
     R0 = aR0
+    RATIO = norm_ratio
 
     global positions_to_draw, colors_to_draw
     positions_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
@@ -66,14 +70,22 @@ def update_colors(
 
 @ti.kernel
 def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32):
-    border_vertices[0] = ti.Vector([-R, -R, 0])
-    border_vertices[1] = ti.Vector([X + R, -R, 0])
-    border_vertices[2] = ti.Vector([X + R, Y + R, 0])
-    border_vertices[3] = ti.Vector([-R, Y + R, 0])
+    grid_borders_vertices[0] = ti.Vector([-R, -R, 0])
+    grid_borders_vertices[1] = ti.Vector([X + R, -R, 0])
+    grid_borders_vertices[2] = ti.Vector([X + R, Y + R, 0])
+    grid_borders_vertices[3] = ti.Vector([-R, Y + R, 0])
 
 
-def draw_borders(scene: ti.ui.Scene):
-    scene.lines(vertices=border_vertices, indices=border_indices, width=2)
+def draw_borders(scene: ti.ui.Scene, borders_lst):
+    scene.lines(vertices=grid_borders_vertices, indices=grid_border_indices, width=2)
+
+    count = len(borders_lst)
+    if count == 0:
+        return
+    drawn_borders = ti.Vector.field(3, dtype=ti.f32, shape=count)
+    for i in range(count):
+        drawn_borders[i] = borders_lst[i] / RATIO
+    scene.lines(vertices=drawn_borders, width=2)
 
 
 def draw_circles(
