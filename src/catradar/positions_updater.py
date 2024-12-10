@@ -169,7 +169,6 @@ def point_in_rect(px, py, sx1, sy1, sx2, sy2) -> bool:
 @ti.func
 def calc_angel(a: ti.math.vec2, b: ti.math.vec2) -> ti.f32:
     dot = ti.math.dot(a, b)
-    print(dot)
     u = ti.math.length(a)
     v = ti.math.length(b)
 
