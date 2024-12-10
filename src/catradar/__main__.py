@@ -142,6 +142,11 @@ def draw_ui(gui: ti.ui.Gui):
             if len(drawn_borders_lst) >= 2:
                 drawn_borders_lst.pop()
                 drawn_borders_lst.pop()
+                global borders_count
+                borders_count -= 1
+                drawn_borders[borders_count] = (0.0, 0.0, 0.0)
+                borders_count -= 1
+                drawn_borders[borders_count] = (0.0, 0.0, 0.0)
 
 
 def setup_all_data():
