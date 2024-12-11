@@ -156,25 +156,6 @@ def draw_ui(gui: ti.ui.Gui):
                 borders_count -= 1
                 drawn_borders[borders_count] = (0.0, 0.0, 0.0)
 
-    global last_click_time, ADDING_STATE
-    with gui.sub_window("Adding new border", 0.9, 0, 0.1, 0.2) as w:
-        text = "Add border" if ADDING_STATE == NO_ADDING_MODE else "Cancel"
-        if w.button(text):
-            if ADDING_STATE == NO_ADDING_MODE:
-                last_click_time = time.time()
-                ADDING_STATE = ZERO_POINTS_ADDED
-            else:
-                ADDING_STATE = NO_ADDING_MODE
-        if w.button("Remove last"):
-            if len(drawn_borders_lst) >= 2:
-                drawn_borders_lst.pop()
-                drawn_borders_lst.pop()
-                global borders_count
-                borders_count -= 1
-                drawn_borders[borders_count] = (0.0, 0.0, 0.0)
-                borders_count -= 1
-                drawn_borders[borders_count] = (0.0, 0.0, 0.0)
-
 
 def setup_all_data():
     # data shared between all modules
@@ -249,7 +230,7 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
             cur_time = time.time()
             # Forbid add point in the menu bar
             if cur_time - last_click_time < DELAY:
-                return
+                return cursor_board_pos
             last_click_time = cur_time
 
             current_point = ti.Vector([cursor_board_pos[0], cursor_board_pos[1], 0])
@@ -273,6 +254,7 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
                 borders_count += 1
 
                 ADDING_STATE = NO_ADDING_MODE
+    return cursor_board_pos
 
 
 def main():
