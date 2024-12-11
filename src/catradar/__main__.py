@@ -70,10 +70,6 @@ settings_buffer = {
 }
 allow_large_n = False
 
-borders_count = 0
-drawn_borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
-borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
-
 
 def draw_ui(gui: ti.ui.Gui):
     global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
@@ -137,7 +133,7 @@ def draw_ui(gui: ti.ui.Gui):
     else:
         is_3rd_person_view = False
 
-    global last_click_time, ADDING_STATE
+    global last_click_time, ADDING_STATE, borders_count
     if not is_3rd_person_view:
         with gui.sub_window("Adding new border", 0.9, 0, 0.1, 0.2) as w:
             text = "Add border" if ADDING_STATE == NO_ADDING_MODE else "Cancel"
@@ -148,10 +144,7 @@ def draw_ui(gui: ti.ui.Gui):
                 else:
                     ADDING_STATE = NO_ADDING_MODE
             if w.button("Remove last"):
-                if len(drawn_borders_lst) >= 2:
-                    drawn_borders_lst.pop()
-                    drawn_borders_lst.pop()
-                    global borders_count
+                if borders_count >= 2:
                     borders_count -= 1
                     drawn_borders[borders_count] = (0.0, 0.0, 0.0)
                     borders_count -= 1
@@ -190,7 +183,10 @@ cursor_pos_field = ti.Vector.field(2, dtype=ti.f32, shape=1)
 
 # Borders drawn by user
 current_border = ti.Vector.field(3, dtype=ti.f32, shape=2)
-drawn_borders_lst = []
+borders_count = 0
+drawn_borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
+borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
+
 # States of adding borders
 NO_ADDING_MODE = 0
 ZERO_POINTS_ADDED = 1
@@ -226,7 +222,12 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
             zoom = 1.2 / camera_pos[2]
             canvas.circles(cursor_pos_field, radius=0.025 * zoom, color=(0.8, 0.7, 0.7))
 
-        global last_click_time, ADDING_STATE, current_border
+        global \
+            last_click_time, \
+            ADDING_STATE, \
+            current_border, \
+            drawn_borders, \
+            borders_count
         if ADDING_STATE != NO_ADDING_MODE:
             cur_time = time.time()
             # Forbid add point in the menu bar
@@ -239,13 +240,6 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
                 current_border[0] = current_point
                 ADDING_STATE = ONE_POINT_ADDED
             else:
-                drawn_borders_lst.append(
-                    ti.Vector([current_border[0][0], current_border[0][1], 0])
-                )
-                drawn_borders_lst.append(current_point)
-
-                global drawn_borders, borders_count
-
                 drawn_borders[borders_count] = current_border[0] / NORM_RATIO
                 borders[borders_count] = current_border[0]
 
