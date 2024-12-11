@@ -22,11 +22,22 @@ grid_border_indices[1] = ti.Vector([1, 2])
 grid_border_indices[2] = ti.Vector([2, 3])
 grid_border_indices[3] = ti.Vector([3, 0])
 
+bottom_indices = ti.field(dtype=ti.i32, shape=6)
+bottom_indices[0] = 0
+bottom_indices[1] = 1
+bottom_indices[2] = 3
+bottom_indices[3] = 3
+bottom_indices[4] = 1
+bottom_indices[5] = 2
+
+navigate_grid_vertices = NotImplemented
+
+
 __all__ = ["setup_data_for_scene", "draw_borders", "draw_circles"]
 
 
 def setup_data_for_scene(
-    aX: ti.f32, aY: ti.f32, aN: ti.i32, aR0: ti.f32, norm_ratio: ti.f32
+    aX: ti.f32, aY: ti.f32, aN: ti.i32, aR0: ti.f32, aR1: ti.f32, norm_ratio: ti.f32
 ):
     global N, R0, RATIO
     N = aN
@@ -37,7 +48,9 @@ def setup_data_for_scene(
     positions_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
     colors_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
 
-    fill_vertices(aX / norm_ratio, aY / norm_ratio, R0 / norm_ratio / 2)
+    fill_vertices(
+        aX / norm_ratio, aY / norm_ratio, R0 / norm_ratio / 2, aR1 / norm_ratio
+    )
 
 
 @ti.kernel
@@ -64,17 +77,51 @@ def update_colors(
             colors_to_draw[i] += ti.Vector([0.5, 0.0, 0.0])
 
 
-@ti.kernel
-def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32):
+# @ti.kernel
+def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32, R1: ti.f32):
     grid_borders_vertices[0] = ti.Vector([-R, -R, 0])
     grid_borders_vertices[1] = ti.Vector([X + R, -R, 0])
     grid_borders_vertices[2] = ti.Vector([X + R, Y + R, 0])
     grid_borders_vertices[3] = ti.Vector([-R, Y + R, 0])
 
+    global navigate_grid_vertices
+    NAVIGATE_GRID_SIZE = R1
+    x_lines_count = int(X // NAVIGATE_GRID_SIZE) + 2
+    y_lines_count = int(Y // NAVIGATE_GRID_SIZE) + 2
+    navigate_grid_vertices = ti.Vector.field(
+        3, dtype=ti.f32, shape=(x_lines_count + y_lines_count) * 2
+    )
+    c = 0
+
+    for i in range(x_lines_count):
+        x = ti.min(i * NAVIGATE_GRID_SIZE, X)
+        navigate_grid_vertices[c] = ti.Vector([x, 0, 0])
+        c += 1
+        navigate_grid_vertices[c] = ti.Vector([x, Y, 0])
+        c += 1
+
+    for i in range(y_lines_count):
+        y = ti.min(i * NAVIGATE_GRID_SIZE, Y)
+        navigate_grid_vertices[c] = ti.Vector([0, y, 0])
+        c += 1
+        navigate_grid_vertices[c] = ti.Vector([X, y, 0])
+        c += 1
+
 
 def draw_borders(scene: ti.ui.Scene, drawn_borders, drawn_borders_count):
     scene.lines(vertices=grid_borders_vertices, indices=grid_border_indices, width=2)
     scene.lines(vertices=drawn_borders, width=2, vertex_count=drawn_borders_count)
+
+
+def draw_bottom(scene: ti.ui.Scene):
+    scene.mesh(
+        vertices=grid_borders_vertices,
+        indices=bottom_indices,
+        color=(0.4, 0.4, 0.4),
+        two_sided=True,
+    )
+
+    scene.lines(vertices=navigate_grid_vertices, color=(1, 1, 1), width=1)
 
 
 def draw_circles(
