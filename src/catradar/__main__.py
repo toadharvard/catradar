@@ -138,23 +138,24 @@ def draw_ui(gui: ti.ui.Gui):
         is_3rd_person_view = False
 
     global last_click_time, ADDING_STATE
-    with gui.sub_window("Adding new border", 0.9, 0, 0.1, 0.2) as w:
-        text = "Add border" if ADDING_STATE == NO_ADDING_MODE else "Cancel"
-        if w.button(text):
-            if ADDING_STATE == NO_ADDING_MODE:
-                last_click_time = time.time()
-                ADDING_STATE = ZERO_POINTS_ADDED
-            else:
-                ADDING_STATE = NO_ADDING_MODE
-        if w.button("Remove last"):
-            if len(drawn_borders_lst) >= 2:
-                drawn_borders_lst.pop()
-                drawn_borders_lst.pop()
-                global borders_count
-                borders_count -= 1
-                drawn_borders[borders_count] = (0.0, 0.0, 0.0)
-                borders_count -= 1
-                drawn_borders[borders_count] = (0.0, 0.0, 0.0)
+    if not is_3rd_person_view:
+        with gui.sub_window("Adding new border", 0.9, 0, 0.1, 0.2) as w:
+            text = "Add border" if ADDING_STATE == NO_ADDING_MODE else "Cancel"
+            if w.button(text):
+                if ADDING_STATE == NO_ADDING_MODE:
+                    last_click_time = time.time()
+                    ADDING_STATE = ZERO_POINTS_ADDED
+                else:
+                    ADDING_STATE = NO_ADDING_MODE
+            if w.button("Remove last"):
+                if len(drawn_borders_lst) >= 2:
+                    drawn_borders_lst.pop()
+                    drawn_borders_lst.pop()
+                    global borders_count
+                    borders_count -= 1
+                    drawn_borders[borders_count] = (0.0, 0.0, 0.0)
+                    borders_count -= 1
+                    drawn_borders[borders_count] = (0.0, 0.0, 0.0)
 
 
 def setup_all_data():
@@ -330,7 +331,12 @@ def main():
             trace(lambda: update_logs(logged_id, logs), "collect_logs")
         if show_borders:
             trace(
-                lambda: draw_borders(scene, drawn_borders, borders_count),
+                lambda: draw_borders(
+                    scene,
+                    drawn_borders,
+                    borders_count,
+                    width=2 if not is_3rd_person_view else 6,
+                ),
                 "draw_borders",
             )
 

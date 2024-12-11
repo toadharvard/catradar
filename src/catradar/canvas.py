@@ -108,11 +108,13 @@ def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32, R1: ti.f32):
         c += 1
 
 
-def draw_borders(scene: ti.ui.Scene, drawn_borders, drawn_borders_count):
-    scene.lines(vertices=grid_borders_vertices, indices=grid_border_indices, width=2)
+def draw_borders(scene: ti.ui.Scene, drawn_borders, drawn_borders_count, width):
+    scene.lines(
+        vertices=grid_borders_vertices, indices=grid_border_indices, width=width
+    )
     scene.lines(
         vertices=drawn_borders,
-        width=2,
+        width=width,
         vertex_count=drawn_borders_count,
         color=(0.4, 0.4, 1),
     )
