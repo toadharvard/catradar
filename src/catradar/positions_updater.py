@@ -226,7 +226,6 @@ def process_point_in_segment(
             vel *= -1
             vel = rotate_vector(vel, angel * 2)
             positions[point_id] = last_positions[point_id]
-            print(angel * 180 / math.pi)
 
 
 @ti.kernel
