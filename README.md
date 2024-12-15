@@ -78,4 +78,3 @@ Taichi Lang is an open-source, imperative, parallel programming language for hig
 
 ## Лицензия
 Код распространяется под лицензией MIT. Подробнее в файле [LICENCE](./LICENCE).
-
