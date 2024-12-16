@@ -146,8 +146,11 @@ def draw_ui(gui: ti.ui.Gui):
             if w.button("Remove last"):
                 if borders_count >= 2:
                     borders_count -= 1
+                    borders[borders_count] = (0.0, 0.0, 0.0)
                     borders_to_draw[borders_count] = (0.0, 0.0, 0.0)
+
                     borders_count -= 1
+                    borders[borders_count] = (0.0, 0.0, 0.0)
                     borders_to_draw[borders_count] = (0.0, 0.0, 0.0)
 
 
