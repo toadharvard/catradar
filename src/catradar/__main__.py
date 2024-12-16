@@ -146,9 +146,9 @@ def draw_ui(gui: ti.ui.Gui):
             if w.button("Remove last"):
                 if borders_count >= 2:
                     borders_count -= 1
-                    drawn_borders[borders_count] = (0.0, 0.0, 0.0)
+                    borders_to_draw[borders_count] = (0.0, 0.0, 0.0)
                     borders_count -= 1
-                    drawn_borders[borders_count] = (0.0, 0.0, 0.0)
+                    borders_to_draw[borders_count] = (0.0, 0.0, 0.0)
 
 
 def setup_all_data():
@@ -184,7 +184,7 @@ cursor_pos_field = ti.Vector.field(2, dtype=ti.f32, shape=1)
 # Borders drawn by user
 current_border = ti.Vector.field(3, dtype=ti.f32, shape=2)
 borders_count = 0
-drawn_borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
+borders_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=100)
 borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
 
 # States of adding borders
@@ -214,8 +214,6 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
         )
         cursor_board_pos *= NORM_RATIO / ws[1]
 
-        # print(cursor_board_pos.x, cursor_board_pos.y)
-
         if cursor_push_on:
             cursor_pos = window.get_cursor_pos()
             cursor_pos_field[0] = ti.Vector([cursor_pos[0], cursor_pos[1]])
@@ -226,11 +224,10 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
             last_click_time, \
             adding_state, \
             current_border, \
-            drawn_borders, \
+            borders_to_draw, \
             borders_count
         if adding_state != NO_ADDING_MODE:
             cur_time = time.time()
-            # Forbid add point in the menu bar
             if cur_time - last_click_time < DELAY:
                 return cursor_board_pos
             last_click_time = cur_time
@@ -240,13 +237,13 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
                 current_border[0] = current_point
                 adding_state = ONE_POINT_ADDED
             else:
-                drawn_borders[borders_count] = current_border[0] / NORM_RATIO
+                borders_to_draw[borders_count] = current_border[0] / NORM_RATIO
                 borders[borders_count] = current_border[0]
 
-                borders_count += 1
-                drawn_borders[borders_count] = current_point / NORM_RATIO
+                borders_to_draw[borders_count] = current_point / NORM_RATIO
                 borders[borders_count] = current_point
-                borders_count += 1
+
+                borders_count += 2
 
                 adding_state = NO_ADDING_MODE
     return cursor_board_pos
@@ -327,7 +324,7 @@ def main():
             trace(
                 lambda: draw_borders(
                     scene,
-                    drawn_borders,
+                    borders_to_draw,
                     borders_count,
                     width=2 if not is_3rd_person_view else 6,
                 ),
