@@ -133,6 +133,26 @@ def draw_ui(gui: ti.ui.Gui):
     else:
         is_3rd_person_view = False
 
+    global last_click_time, adding_state, borders_count
+    if not is_3rd_person_view:
+        with gui.sub_window("Adding new border", 0.9, 0, 0.1, 0.2) as w:
+            text = "Add border" if adding_state == NO_ADDING_MODE else "Cancel"
+            if w.button(text):
+                if adding_state == NO_ADDING_MODE:
+                    last_click_time = time.time()
+                    adding_state = ZERO_POINTS_ADDED
+                else:
+                    adding_state = NO_ADDING_MODE
+            if w.button("Remove last"):
+                if borders_count >= 2:
+                    borders_count -= 1
+                    borders[borders_count] = (0.0, 0.0, 0.0)
+                    borders_to_draw[borders_count] = (0.0, 0.0, 0.0)
+
+                    borders_count -= 1
+                    borders[borders_count] = (0.0, 0.0, 0.0)
+                    borders_to_draw[borders_count] = (0.0, 0.0, 0.0)
+
 
 def setup_all_data():
     # data shared between all modules
@@ -163,6 +183,73 @@ def reset_grid():
 
 
 cursor_pos_field = ti.Vector.field(2, dtype=ti.f32, shape=1)
+
+# Borders drawn by user
+current_border = ti.Vector.field(3, dtype=ti.f32, shape=2)
+borders_count = 0
+borders_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=100)
+borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
+
+# States of adding borders
+NO_ADDING_MODE = 0
+ZERO_POINTS_ADDED = 1
+ONE_POINT_ADDED = 2
+adding_state = NO_ADDING_MODE
+# Handling clicks
+DELAY = 0.1  # in seconds
+last_click_time = 0
+
+
+def process_click(window, canvas, camera_pos) -> ti.math.vec2:
+    cursor_board_pos = ti.math.vec2(-1000, -1000)
+    if window.is_pressed(ti.GUI.LMB):
+        ws = window.get_window_shape()
+        cursor_pos = window.get_cursor_pos()
+        zoom = 1.2 / camera_pos[2]
+
+        cursor_board_pos[0] = (
+            ws[0]
+            * (cursor_pos[0] + (camera_pos[0] * zoom * (ws[1] / ws[0]) - 0.5))
+            / zoom
+        )
+        cursor_board_pos[1] = (
+            ws[1] * (cursor_pos[1] + camera_pos[1] * zoom - 0.5) / zoom
+        )
+        cursor_board_pos *= NORM_RATIO / ws[1]
+
+        if cursor_push_on:
+            cursor_pos = window.get_cursor_pos()
+            cursor_pos_field[0] = ti.Vector([cursor_pos[0], cursor_pos[1]])
+            zoom = 1.2 / camera_pos[2]
+            canvas.circles(cursor_pos_field, radius=0.025 * zoom, color=(0.8, 0.7, 0.7))
+
+        global \
+            last_click_time, \
+            adding_state, \
+            current_border, \
+            borders_to_draw, \
+            borders_count
+        if adding_state != NO_ADDING_MODE:
+            cur_time = time.time()
+            if cur_time - last_click_time < DELAY:
+                return cursor_board_pos
+            last_click_time = cur_time
+
+            current_point = ti.Vector([cursor_board_pos[0], cursor_board_pos[1], 0])
+            if adding_state == ZERO_POINTS_ADDED:
+                current_border[0] = current_point
+                adding_state = ONE_POINT_ADDED
+            else:
+                borders_to_draw[borders_count] = current_border[0] / NORM_RATIO
+                borders[borders_count] = current_border[0]
+                borders_count += 1
+
+                borders_to_draw[borders_count] = current_point / NORM_RATIO
+                borders[borders_count] = current_point
+                borders_count += 1
+
+                adding_state = NO_ADDING_MODE
+    return cursor_board_pos
 
 
 def main():
@@ -204,29 +291,14 @@ def main():
             prev_logged_pos[0] = ti.math.nan
             prev_logged_pos[1] = ti.math.nan
 
-        cursor_board_pos = ti.math.vec2(-1000, -1000)
-        # cursor info
-        if window.is_pressed(ti.GUI.LMB):
-            camera_pos = camera.curr_position
-            ws = window.get_window_shape()
-            cursor_pos = window.get_cursor_pos()
-            zoom = 1.2 / camera_pos[2]
-            # i really don't know how but it work
-            cursor_board_pos[0] = (
-                ws[0]
-                * (cursor_pos[0] + (camera_pos[0] * zoom * (ws[1] / ws[0]) - 0.5))
-                / zoom
-            )
-            cursor_board_pos[1] = (
-                ws[1] * (cursor_pos[1] + camera_pos[1] * zoom - 0.5) / zoom
-            )
-            cursor_board_pos *= NORM_RATIO / ws[1]
-            # gui.text(f"cursor {cursor_board_pos[0]} {cursor_board_pos[1]}")
+        cursor_board_pos = process_click(window, canvas, camera.curr_position)
 
         new_update_time = time.time()
         trace(
             lambda: update_positions(
                 positions,
+                borders,
+                borders_count,
                 intersections,
                 cursor_board_pos,
                 cursor_push_on,
@@ -252,7 +324,15 @@ def main():
         if show_logs and print_logs:
             trace(lambda: update_logs(logged_id, logs), "collect_logs")
         if show_borders:
-            trace(lambda: draw_borders(scene), "draw_borders")
+            trace(
+                lambda: draw_borders(
+                    scene,
+                    borders_to_draw,
+                    borders_count,
+                    width=2 if not is_3rd_person_view else 6,
+                ),
+                "draw_borders",
+            )
 
         draw_circles(
             scene,
@@ -263,10 +343,6 @@ def main():
             NORM_RATIO,
             window.get_window_shape(),
         )
-        if cursor_push_on and window.is_pressed(ti.GUI.LMB):
-            cursor_pos = window.get_cursor_pos()
-            cursor_pos_field[0] = ti.Vector([cursor_pos[0], cursor_pos[1]])
-            canvas.circles(cursor_pos_field, radius=0.025 * zoom, color=(0.8, 0.7, 0.7))
         trace(lambda: draw_ui(gui), "draw_ui")
         trace(lambda: canvas.scene(scene), "canvas.scene")
         trace(lambda: window.show(), "window.show")
