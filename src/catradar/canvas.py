@@ -9,7 +9,6 @@ from catradar.utils import trace
 
 N: ti.i32
 R0: ti.f32
-RATIO: ti.i32
 
 positions_to_draw = NotImplemented
 colors_to_draw = NotImplemented
@@ -39,10 +38,9 @@ __all__ = ["setup_data_for_scene", "draw_borders", "draw_circles"]
 def setup_data_for_scene(
     aX: ti.f32, aY: ti.f32, aN: ti.i32, aR0: ti.f32, aR1: ti.f32, norm_ratio: ti.f32
 ):
-    global N, R0, RATIO
+    global N, R0
     N = aN
     R0 = aR0
-    RATIO = norm_ratio
 
     global positions_to_draw, colors_to_draw
     positions_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
