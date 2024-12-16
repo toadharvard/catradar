@@ -133,16 +133,16 @@ def draw_ui(gui: ti.ui.Gui):
     else:
         is_3rd_person_view = False
 
-    global last_click_time, ADDING_STATE, borders_count
+    global last_click_time, adding_state, borders_count
     if not is_3rd_person_view:
         with gui.sub_window("Adding new border", 0.9, 0, 0.1, 0.2) as w:
-            text = "Add border" if ADDING_STATE == NO_ADDING_MODE else "Cancel"
+            text = "Add border" if adding_state == NO_ADDING_MODE else "Cancel"
             if w.button(text):
-                if ADDING_STATE == NO_ADDING_MODE:
+                if adding_state == NO_ADDING_MODE:
                     last_click_time = time.time()
-                    ADDING_STATE = ZERO_POINTS_ADDED
+                    adding_state = ZERO_POINTS_ADDED
                 else:
-                    ADDING_STATE = NO_ADDING_MODE
+                    adding_state = NO_ADDING_MODE
             if w.button("Remove last"):
                 if borders_count >= 2:
                     borders_count -= 1
@@ -191,7 +191,7 @@ borders = ti.Vector.field(3, dtype=ti.f32, shape=100)
 NO_ADDING_MODE = 0
 ZERO_POINTS_ADDED = 1
 ONE_POINT_ADDED = 2
-ADDING_STATE = NO_ADDING_MODE
+adding_state = NO_ADDING_MODE
 # Handling clicks
 DELAY = 0.1  # in seconds
 last_click_time = 0
@@ -224,11 +224,11 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
 
         global \
             last_click_time, \
-            ADDING_STATE, \
+            adding_state, \
             current_border, \
             drawn_borders, \
             borders_count
-        if ADDING_STATE != NO_ADDING_MODE:
+        if adding_state != NO_ADDING_MODE:
             cur_time = time.time()
             # Forbid add point in the menu bar
             if cur_time - last_click_time < DELAY:
@@ -236,9 +236,9 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
             last_click_time = cur_time
 
             current_point = ti.Vector([cursor_board_pos[0], cursor_board_pos[1], 0])
-            if ADDING_STATE == ZERO_POINTS_ADDED:
+            if adding_state == ZERO_POINTS_ADDED:
                 current_border[0] = current_point
-                ADDING_STATE = ONE_POINT_ADDED
+                adding_state = ONE_POINT_ADDED
             else:
                 drawn_borders[borders_count] = current_border[0] / NORM_RATIO
                 borders[borders_count] = current_border[0]
@@ -248,7 +248,7 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
                 borders[borders_count] = current_point
                 borders_count += 1
 
-                ADDING_STATE = NO_ADDING_MODE
+                adding_state = NO_ADDING_MODE
     return cursor_board_pos
 
 
