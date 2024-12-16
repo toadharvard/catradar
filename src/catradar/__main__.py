@@ -239,11 +239,11 @@ def process_click(window, canvas, camera_pos) -> ti.math.vec2:
             else:
                 borders_to_draw[borders_count] = current_border[0] / NORM_RATIO
                 borders[borders_count] = current_border[0]
+                borders_count += 1
 
                 borders_to_draw[borders_count] = current_point / NORM_RATIO
                 borders[borders_count] = current_point
-
-                borders_count += 2
+                borders_count += 1
 
                 adding_state = NO_ADDING_MODE
     return cursor_board_pos
