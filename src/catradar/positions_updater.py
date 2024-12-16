@@ -1,5 +1,3 @@
-import math
-
 import taichi as ti
 from math import pi
 
