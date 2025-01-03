@@ -39,9 +39,9 @@ list_cur = NotImplemented
 list_tail = NotImplemented
 circles_id = NotImplemented
 
-logs_new_state = ti.field(ti.i32, shape=())
-logs_prev_state = ti.field(ti.i32, shape=())
-logs_who_changed_id = ti.field(ti.i32, shape=())
+logs_new_state = NotImplemented
+logs_prev_state = NotImplemented
+logs_who_changed_id = NotImplemented
 
 
 def setup_grid_data(
@@ -76,7 +76,11 @@ def setup_grid_data(
         list_head, \
         list_cur, \
         list_tail, \
-        circles_id
+        circles_id, \
+        logs_new_state, \
+        logs_prev_state, \
+        logs_who_changed_id
+
     circles_per_cell = ti.field(dtype=ti.i32, shape=(cell_count_x, cell_count_y))
     column_sum = ti.field(dtype=ti.i32, shape=cell_count_x)
     prefix_sum = ti.field(dtype=ti.i32, shape=(cell_count_x, cell_count_y))
@@ -84,6 +88,9 @@ def setup_grid_data(
     list_cur = ti.field(dtype=ti.i32, shape=cell_count_x * cell_count_y)
     list_tail = ti.field(dtype=ti.i32, shape=cell_count_x * cell_count_y)
     circles_id = ti.field(dtype=ti.i32, shape=N)
+    logs_new_state = ti.field(ti.i32, shape=N)
+    logs_prev_state = ti.field(ti.i32, shape=N)
+    logs_who_changed_id = ti.field(ti.i32, shape=N)
 
 
 @ti.func
@@ -109,7 +116,6 @@ def compute_states(
     intersections: ti.template(),
     update_intersections: ti.i8,
     norm_func: ti.i32,
-    logged_id: ti.i32,
 ):
     # Compute count of circles per cell
     circles_per_cell.fill(0)
@@ -159,8 +165,7 @@ def compute_states(
         state = STATE_IDLE
         intersect_len = 0
 
-        if logged_id == i:
-            logs_who_changed_id[None] = -1  # Initially, no one changed state of idx
+        logs_who_changed_id[i] = -1  # Initially, no one changed state of idx
 
         for neigh_x in range(x_begin, x_end):
             for neigh_y in range(y_begin, y_end):
@@ -177,8 +182,7 @@ def compute_states(
                         dist = _calc_dist(positions[i], positions[j], norm_func)
                         if dist <= R0:
                             state = STATE_INTERSECTION
-                            if logged_id == i:
-                                logs_who_changed_id[None] = j
+                            logs_who_changed_id[i] = j
 
                             if not update_intersections:
                                 break
@@ -193,8 +197,7 @@ def compute_states(
                             prob = 1 if MODE == TESTING_MODE else 1.0 / (temp * temp)
                             if ti.random() <= prob:
                                 state = STATE_INTERACT
-                                if logged_id == i:
-                                    logs_who_changed_id[None] = j
+                                logs_who_changed_id[i] = j
 
                 if state == STATE_INTERSECTION and (
                     not update_intersections or intersect_len == INTERSECTION_NUM
@@ -206,30 +209,31 @@ def compute_states(
             ):
                 break
 
-        if logged_id == i:
-            logs_prev_state[None] = states[i]
-            logs_new_state[None] = state
+        logs_prev_state[i] = states[i]
+        logs_new_state[i] = state
         states[i] = state
         intersections[i, 0] = intersect_len
 
 
-def update_logs(logged_id, logs):
-    if logs_new_state[None] == logs_prev_state[None]:
-        return
-    if logs_who_changed_id[None] == -1:
-        logs.append(
-            "State of {} id changed: {} -> {}".format(
-                logged_id,
-                state_to_str[logs_prev_state[None]],
-                state_to_str[logs_new_state[None]],
+def update_logs(logs):
+    for i in range(N):
+        if logs_new_state[i] == logs_prev_state[i]:
+            continue
+        if logs_who_changed_id[i] == -1:
+            logs[i].append(
+                "State of {} id changed: {} -> {}".format(
+                    i,
+                    state_to_str[logs_prev_state[i]],
+                    state_to_str[logs_new_state[i]],
+                )
+            )
+            return
+
+        logs[i].append(
+            "State of {} id changed: {} -> {} by {} id".format(
+                i,
+                state_to_str[logs_prev_state[i]],
+                state_to_str[logs_new_state[i]],
+                logs_who_changed_id[i],
             )
         )
-        return
-    logs.append(
-        "State of {} id changed: {} -> {} by {} id".format(
-            logged_id,
-            state_to_str[logs_prev_state[None]],
-            state_to_str[logs_new_state[None]],
-            logs_who_changed_id[None],
-        )
-    )

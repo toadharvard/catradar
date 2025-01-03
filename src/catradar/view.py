@@ -12,7 +12,6 @@ up_vector = np.array([0.0, 1.0, 0.0])
 right_vector = np.array([-1.0, 0.0, 0.0])
 
 
-# Изначальная позиция для обычной камеры
 default_camera_pos = np.array([0.3, 0.5, 1.5])
 
 third_person_prev_angle = 0.0
@@ -22,24 +21,17 @@ def default_camera_mover(window: ti.ui.Window, camera_pos: np.ndarray):
     speed = 0.01 * camera_pos[2]  # Скорость перемещения камеры
 
     if window.is_pressed("q"):
-        # Перемещаем камеру вперед
         camera_pos += forward_vector * speed
     if window.is_pressed("e"):
-        # Перемещаем камеру назад
         camera_pos -= forward_vector * speed
 
     if window.is_pressed("a"):
-        # Перемещаем камеру влево
         camera_pos += right_vector * speed
     if window.is_pressed("d"):
-        # Перемещаем камеру вправо
         camera_pos -= right_vector * speed
-
     if window.is_pressed("w"):
-        # Перемещаем камеру вверх
         camera_pos += up_vector * speed
     if window.is_pressed("s"):
-        # Перемещаем камеру вниз
         camera_pos -= up_vector * speed
     camera_pos[2] = max(camera_pos[2], 0.2)
 
