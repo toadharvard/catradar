@@ -1,9 +1,7 @@
-from collections import defaultdict
 import time
 import taichi as ti
 from catradar.common import STANDARD_MODE
 import tkinter as tk
-
 from catradar.utils import trace
 
 from catradar.canvas import (
@@ -39,7 +37,7 @@ norm_func: ti.i32 = 0
 show_logs = True
 print_logs = True
 logged_id: ti.i32 = 0
-logs = defaultdict(list)
+logs = []
 show_all = True
 current_page = 0
 per_page = 50
@@ -144,7 +142,7 @@ def draw_ui(gui: ti.ui.Gui):
             if w.button(text_button):
                 print_logs = not print_logs
             if w.button("Clear"):
-                logs = defaultdict(list)
+                logs = []
 
             prev_show_all = settings_buffer["show_all"]
             settings_buffer["show_all"] = w.checkbox(
@@ -156,11 +154,16 @@ def draw_ui(gui: ti.ui.Gui):
             if not settings_buffer["show_all"]:
                 logged_id = w.slider_int("Cat index", logged_id, 0, N - 1)
                 is_3rd_person_view = w.checkbox("Track current cat", is_3rd_person_view)
-                current_logs = fmt_logs(sorted(logs[logged_id], key=lambda log: log[0]))
+                current_logs = fmt_logs(
+                    sorted(
+                        filter(lambda log: log[1] == logged_id, logs),
+                        key=lambda log: log[0],
+                    )
+                )
             else:
                 current_logs = fmt_logs(
                     sorted(
-                        (log for i in range(N) for log in logs[i]),
+                        logs,
                         key=lambda log: log[0],
                     )
                 )

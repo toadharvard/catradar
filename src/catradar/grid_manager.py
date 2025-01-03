@@ -1,5 +1,6 @@
 # implementation of this module was taken from https://docs.taichi-lang.org/blog/acclerate-collision-detection-with-taichi
 import time
+import numpy
 import taichi as ti
 
 __all__ = [
@@ -43,6 +44,8 @@ logs_new_state = NotImplemented
 logs_prev_state = NotImplemented
 logs_who_changed_id = NotImplemented
 
+log_results = NotImplemented
+
 
 def setup_grid_data(
     aX: ti.f32,
@@ -79,7 +82,8 @@ def setup_grid_data(
         circles_id, \
         logs_new_state, \
         logs_prev_state, \
-        logs_who_changed_id
+        logs_who_changed_id, \
+        log_results
 
     circles_per_cell = ti.field(dtype=ti.i32, shape=(cell_count_x, cell_count_y))
     column_sum = ti.field(dtype=ti.i32, shape=cell_count_x)
@@ -91,6 +95,8 @@ def setup_grid_data(
     logs_new_state = ti.field(ti.i32, shape=N)
     logs_prev_state = ti.field(ti.i32, shape=N)
     logs_who_changed_id = ti.field(ti.i32, shape=N)
+
+    log_results = ti.ndarray(shape=(N, 5), dtype=ti.i32)
 
 
 @ti.func
@@ -215,17 +221,28 @@ def compute_states(
         intersections[i, 0] = intersect_len
 
 
-def update_logs(logs):
+@ti.kernel
+def update_logs_kernel(
+    results: ti.types.ndarray(),
+    new_state: ti.template(),
+    prev_state: ti.template(),
+    who_changed_id: ti.template(),
+):
     for i in range(N):
-        if logs_new_state[i] == logs_prev_state[i]:
-            continue
+        if new_state[i] != prev_state[i]:
+            results[i, 0] = 0
+            results[i, 1] = i
+            results[i, 2] = prev_state[i]
+            results[i, 3] = new_state[i]
+            results[i, 4] = who_changed_id[i]
 
-        logs[i].append(
-            (
-                time.time(),
-                i,
-                logs_prev_state[i],
-                logs_new_state[i],
-                logs_who_changed_id[i],
-            )
-        )
+
+def update_logs(logs):
+    log_results.fill(0)
+    update_logs_kernel(
+        log_results, logs_new_state, logs_prev_state, logs_who_changed_id
+    )
+    np_log_results = log_results.to_numpy()
+    np_log_results = np_log_results[~numpy.all(np_log_results == 0, axis=1)]
+    np_log_results[:, 0] = time.time()
+    logs.extend(np_log_results.tolist())
