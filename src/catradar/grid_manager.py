@@ -1,4 +1,5 @@
 # implementation of this module was taken from https://docs.taichi-lang.org/blog/acclerate-collision-detection-with-taichi
+import time
 import taichi as ti
 
 __all__ = [
@@ -15,7 +16,6 @@ from catradar.common import (
     STATE_INTERSECTION,
     STATE_INTERACT,
     TESTING_MODE,
-    state_to_str,
 )
 
 EPS: ti.f32 = 1e-8
@@ -219,21 +219,13 @@ def update_logs(logs):
     for i in range(N):
         if logs_new_state[i] == logs_prev_state[i]:
             continue
-        if logs_who_changed_id[i] == -1:
-            logs[i].append(
-                "State of {} id changed: {} -> {}".format(
-                    i,
-                    state_to_str[logs_prev_state[i]],
-                    state_to_str[logs_new_state[i]],
-                )
-            )
-            return
 
         logs[i].append(
-            "State of {} id changed: {} -> {} by {} id".format(
+            (
+                time.time(),
                 i,
-                state_to_str[logs_prev_state[i]],
-                state_to_str[logs_new_state[i]],
+                logs_prev_state[i],
+                logs_new_state[i],
                 logs_who_changed_id[i],
             )
         )

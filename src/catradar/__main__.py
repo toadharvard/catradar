@@ -17,6 +17,7 @@ from catradar.positions_updater import (
     update_positions,
     setup_positions_data,
 )
+from catradar.common import state_to_str
 from catradar.grid_manager import compute_states, setup_grid_data, update_logs
 from catradar.view import camera, default_view, third_person_view
 
@@ -74,6 +75,26 @@ settings_buffer = {
 allow_large_n = False
 
 
+def fmt_logs(logs):
+    return [
+        "{}: {} state: {} -> {}".format(
+            time.strftime("%H:%M:%S", time.localtime(timestamp)),
+            i,
+            state_to_str[prev_state],
+            state_to_str[new_state],
+        )
+        if who_changed_id == -1
+        else "{}: {} state: {} -> {} (changed by {})".format(
+            time.strftime("%H:%M:%S", time.localtime(timestamp)),
+            i,
+            state_to_str[prev_state],
+            state_to_str[new_state],
+            who_changed_id,
+        )
+        for timestamp, i, prev_state, new_state, who_changed_id in logs
+    ]
+
+
 def draw_ui(gui: ti.ui.Gui):
     global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
     global allow_large_n, logged_id, current_page, is_3rd_person_view
@@ -125,28 +146,33 @@ def draw_ui(gui: ti.ui.Gui):
             if w.button("Clear"):
                 logs = defaultdict(list)
 
+            prev_show_all = settings_buffer["show_all"]
             settings_buffer["show_all"] = w.checkbox(
                 "Show All", settings_buffer["show_all"]
             )
+            if prev_show_all != settings_buffer["show_all"]:
+                current_page = 0
 
             if not settings_buffer["show_all"]:
                 logged_id = w.slider_int("Cat index", logged_id, 0, N - 1)
                 is_3rd_person_view = w.checkbox("Track current cat", is_3rd_person_view)
-                logs_sz = len(logs[logged_id])
-                current_page = w.slider_int(
-                    "Page", current_page, 0, max(logs_sz - 1, 0) // per_page
-                )
-                left = max(0, logs_sz - (current_page + 1) * per_page)
-                right = logs_sz - current_page * per_page - 1
-
-                w.text("\n".join(reversed(logs[logged_id][left : right - 1])))
+                current_logs = fmt_logs(sorted(logs[logged_id], key=lambda log: log[0]))
             else:
-                all_logs = [log for i in range(N) for log in logs[i]]
-                logs_sz = len(all_logs)
+                current_logs = fmt_logs(
+                    sorted(
+                        (log for i in range(N) for log in logs[i]),
+                        key=lambda log: log[0],
+                    )
+                )
 
-                left = max(0, logs_sz - (current_page + 1) * per_page)
-                right = logs_sz - current_page * per_page - 1
-                w.text("\n".join(reversed(all_logs[left : right - 1])))
+            logs_sz = len(current_logs)
+            current_page = w.slider_int(
+                "Page", current_page, 0, max(logs_sz - 1, 0) // per_page
+            )
+            left = max(0, logs_sz - (current_page + 1) * per_page)
+            right = logs_sz - current_page * per_page - 1
+
+            w.text("\n".join(reversed(current_logs[left : right - 1])))
     else:
         is_3rd_person_view = False
 
