@@ -2,7 +2,6 @@ import time
 import taichi as ti
 from catradar.common import STANDARD_MODE
 import tkinter as tk
-
 from catradar.utils import trace
 
 from catradar.canvas import (
@@ -16,6 +15,7 @@ from catradar.positions_updater import (
     update_positions,
     setup_positions_data,
 )
+from catradar.common import state_to_str
 from catradar.grid_manager import compute_states, setup_grid_data, update_logs
 from catradar.view import camera, default_view, third_person_view
 
@@ -38,6 +38,7 @@ show_logs = True
 print_logs = True
 logged_id: ti.i32 = 0
 logs = []
+show_all = True
 current_page = 0
 per_page = 50
 is_3rd_person_view = False  # for logged cat
@@ -67,8 +68,29 @@ settings_buffer = {
     "R0": R0,
     "R1": R1,
     "init_opt": init_opt,
+    "show_all": show_all,
 }
 allow_large_n = False
+
+
+def fmt_logs(logs):
+    return [
+        "{}: {} state: {} -> {}".format(
+            time.strftime("%H:%M:%S", time.localtime(timestamp)),
+            i,
+            state_to_str[prev_state],
+            state_to_str[new_state],
+        )
+        if who_changed_id == -1
+        else "{}: {} state: {} -> {} (changed by {})".format(
+            time.strftime("%H:%M:%S", time.localtime(timestamp)),
+            i,
+            state_to_str[prev_state],
+            state_to_str[new_state],
+            who_changed_id,
+        )
+        for timestamp, i, prev_state, new_state, who_changed_id in logs
+    ]
 
 
 def draw_ui(gui: ti.ui.Gui):
@@ -96,7 +118,7 @@ def draw_ui(gui: ti.ui.Gui):
             reset_grid()
             initialize_positions(positions, init_opt)
 
-    global show_logs, print_logs, logs, show_borders
+    global show_logs, print_logs, logs, show_borders, show_all
     with gui.sub_window("Settings", 0, 0.22, LEFT_BORDER, 0.23) as w:
         render_rate = w.slider_int("Render rate", render_rate, 0, 100)
         speed_mult = w.slider_float("Speed", speed_mult, 0.0, 5.0)
@@ -121,15 +143,39 @@ def draw_ui(gui: ti.ui.Gui):
                 print_logs = not print_logs
             if w.button("Clear"):
                 logs = []
-            logged_id = w.slider_int("Logged cat index", logged_id, 0, N - 1)
-            is_3rd_person_view = w.checkbox("Track logged cat", is_3rd_person_view)
-            logs_sz = len(logs)
+
+            prev_show_all = settings_buffer["show_all"]
+            settings_buffer["show_all"] = w.checkbox(
+                "Show All", settings_buffer["show_all"]
+            )
+            if prev_show_all != settings_buffer["show_all"]:
+                current_page = 0
+
+            if not settings_buffer["show_all"]:
+                logged_id = w.slider_int("Cat index", logged_id, 0, N - 1)
+                is_3rd_person_view = w.checkbox("Track current cat", is_3rd_person_view)
+                current_logs = fmt_logs(
+                    sorted(
+                        filter(lambda log: log[1] == logged_id, logs),
+                        key=lambda log: log[0],
+                    )
+                )
+            else:
+                current_logs = fmt_logs(
+                    sorted(
+                        logs,
+                        key=lambda log: log[0],
+                    )
+                )
+
+            logs_sz = len(current_logs)
             current_page = w.slider_int(
                 "Page", current_page, 0, max(logs_sz - 1, 0) // per_page
             )
             left = max(0, logs_sz - (current_page + 1) * per_page)
             right = logs_sz - current_page * per_page - 1
-            w.text("\n".join(reversed(logs[left : right - 1])))
+
+            w.text("\n".join(reversed(current_logs[left : right - 1])))
     else:
         is_3rd_person_view = False
 
@@ -317,12 +363,11 @@ def main():
                 intersections,
                 update_opt == 2,
                 norm_func,
-                logged_id if (show_logs and print_logs) else -1,
             ),
             "compute_states",
         )
         if show_logs and print_logs:
-            trace(lambda: update_logs(logged_id, logs), "collect_logs")
+            trace(lambda: update_logs(logs), "collect_logs")
         if show_borders:
             trace(
                 lambda: draw_borders(
