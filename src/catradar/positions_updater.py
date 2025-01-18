@@ -69,7 +69,7 @@ def _movement_patter_free():
 
 
 @ti.kernel
-def movement_pattern_carousel():
+def _movement_pattern_carousel():
     for i in range(N):
         p1_angles[i] += 0.05
         if p1_angles[i] >= 2 * pi:
@@ -225,7 +225,7 @@ def _process_point_in_segment(
 
 
 @ti.kernel
-def check_borders(
+def _check_borders(
     positions: ti.template(),
     borders_count: ti.i32,
     borders: ti.template(),
@@ -266,4 +266,4 @@ def update_positions(
 
     _update_pos_on_velocity(positions, speed_mult, dt)
 
-    check_borders(positions, borders_count // 2, borders)
+    _check_borders(positions, borders_count // 2, borders)
