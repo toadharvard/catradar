@@ -82,7 +82,7 @@ def is_segment_intersect(
     )
 
 
-# Returns rotated vector for
+# Returns rotated vector for vector [to_rotate], when point moves from [last_pos] to [new_pos] through the segment [border1, border2]
 @ti.func
 def get_rotated_vector(
     last_pos: ti.math.vec2,
