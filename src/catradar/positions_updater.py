@@ -64,18 +64,16 @@ def initialize_positions(positions: ti.template(), opt: ti.i32):
 
 
 @ti.kernel
-def _movement_patter_free(
-    positions: ti.template(),  # Need to pass temp argument because taichi does not evaluate this otherwise
-):
+def _movement_patter_free():
     pass
 
 
 @ti.kernel
-def _movement_pattern_carousel(
-    positions: ti.template(),  # Need to pass temp argument because taichi does not evaluate this otherwise
-):
+def movement_pattern_carousel():
     for i in range(N):
-        p1_angles[i] = ti.raw_mod(p1_angles[i] + 0.05, 2 * pi)
+        p1_angles[i] += 0.05
+        if p1_angles[i] >= 2 * pi:
+            p1_angles[i] -= 2 * pi
         velocities[i][0] = ti.cos(p1_angles[i]) * p1_speeds[i]
         velocities[i][1] = ti.sin(p1_angles[i]) * p1_speeds[i]
 
@@ -257,9 +255,9 @@ def update_positions(
     dt: ti.f32,
 ):
     if opt == MOVE_PATTERN_FREE:
-        _movement_patter_free(positions)
+        _movement_patter_free()
     if opt == MOVE_PATTERN_CAROUSEL:
-        _movement_pattern_carousel(positions)
+        _movement_pattern_carousel()
     if opt == MOVE_PATTERN_COLLIDING:
         _movement_pattern_colliding(positions, intersections)
 
