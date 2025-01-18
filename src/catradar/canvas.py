@@ -46,37 +46,12 @@ def setup_data_for_scene(
     positions_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
     colors_to_draw = ti.Vector.field(3, dtype=ti.f32, shape=N)
 
-    fill_vertices(
+    _fill_vertices(
         aX / norm_ratio, aY / norm_ratio, R0 / norm_ratio / 2, aR1 / norm_ratio
     )
 
 
-@ti.kernel
-def update_colors(
-    positions: ti.template(),
-    states: ti.template(),
-    logged_id: ti.i32,
-    render_rate: ti.i32,
-    norm_ratio: ti.f32,
-):
-    for i in range(int(N * render_rate / 100)):
-        fixed = positions[i] / norm_ratio
-        positions_to_draw[i] = ti.Vector([fixed[0], fixed[1], 0])
-        if logged_id == i:
-            colors_to_draw[i] = ti.Vector([0.5, 0.5, 0.5])
-        else:
-            colors_to_draw[i] = ti.Vector([0.0, 0.0, 0.0])
-
-        if states[i] == STATE_IDLE:
-            colors_to_draw[i] += ti.Vector([0.0, 0.0, 0.5])
-        elif states[i] == STATE_INTERACT:
-            colors_to_draw[i] += ti.Vector([0.0, 0.5, 0.0])
-        elif states[i] == STATE_INTERSECTION:
-            colors_to_draw[i] += ti.Vector([0.5, 0.0, 0.0])
-
-
-# @ti.kernel
-def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32, R1: ti.f32):
+def _fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32, R1: ti.f32):
     grid_borders_vertices[0] = ti.Vector([-R, -R, 0])
     grid_borders_vertices[1] = ti.Vector([X + R, -R, 0])
     grid_borders_vertices[2] = ti.Vector([X + R, Y + R, 0])
@@ -104,6 +79,30 @@ def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32, R1: ti.f32):
         c += 1
         navigate_grid_vertices[c] = ti.Vector([X, y, 0])
         c += 1
+
+
+@ti.kernel
+def update_colors(
+    positions: ti.template(),
+    states: ti.template(),
+    logged_id: ti.i32,
+    render_rate: ti.i32,
+    norm_ratio: ti.f32,
+):
+    for i in range(int(N * render_rate / 100)):
+        fixed = positions[i] / norm_ratio
+        positions_to_draw[i] = ti.Vector([fixed[0], fixed[1], 0])
+        if logged_id == i:
+            colors_to_draw[i] = ti.Vector([0.5, 0.5, 0.5])
+        else:
+            colors_to_draw[i] = ti.Vector([0.0, 0.0, 0.0])
+
+        if states[i] == STATE_IDLE:
+            colors_to_draw[i] += ti.Vector([0.0, 0.0, 0.5])
+        elif states[i] == STATE_INTERACT:
+            colors_to_draw[i] += ti.Vector([0.0, 0.5, 0.0])
+        elif states[i] == STATE_INTERSECTION:
+            colors_to_draw[i] += ti.Vector([0.5, 0.0, 0.0])
 
 
 def draw_borders(scene: ti.ui.Scene, drawn_borders, drawn_borders_count, width):
