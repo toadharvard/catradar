@@ -181,7 +181,7 @@ def draw_ui(gui: ti.ui.Gui):
 
     global last_click_time, adding_state, borders_count
     if not is_3rd_person_view:
-        with gui.sub_window("Adding new border", 0.9, 0, 0.1, 0.2) as w:
+        with gui.sub_window("Adding new border", 0.9, 0, 0.1, 0.08) as w:
             text = "Add border" if adding_state == NO_ADDING_MODE else "Cancel"
             if w.button(text):
                 if adding_state == NO_ADDING_MODE:

@@ -17,7 +17,7 @@ default_camera_pos = np.array([0.3, 0.5, 1.5])
 third_person_prev_angle = 0.0
 
 
-def default_camera_mover(window: ti.ui.Window, camera_pos: np.ndarray):
+def _default_camera_mover(window: ti.ui.Window, camera_pos: np.ndarray):
     speed = 0.01 * camera_pos[2]  # Скорость перемещения камеры
 
     if window.is_pressed("q"):
@@ -36,7 +36,7 @@ def default_camera_mover(window: ti.ui.Window, camera_pos: np.ndarray):
     camera_pos[2] = max(camera_pos[2], 0.2)
 
 
-def default_camera_set(scene: ti.ui.Scene, camera_pos: np.ndarray):
+def _default_camera_set(scene: ti.ui.Scene, camera_pos: np.ndarray):
     # Устанавливаем новую позицию камеры
     camera.position(camera_pos[0], camera_pos[1], camera_pos[2])
     camera.lookat(
@@ -48,7 +48,7 @@ def default_camera_set(scene: ti.ui.Scene, camera_pos: np.ndarray):
     scene.set_camera(camera)
 
 
-def cat_camera(scene: ti.ui.Scene, norm_ratio, prev_pos, pos):
+def _cat_camera(scene: ti.ui.Scene, norm_ratio, prev_pos, pos):
     global third_person_prev_angle
     if prev_pos[0] != ti.math.nan:
         dif = prev_pos - pos
@@ -80,12 +80,12 @@ def cat_camera(scene: ti.ui.Scene, norm_ratio, prev_pos, pos):
 def default_view(scene: ti.ui.Scene, window: ti.ui.Window):
     scene.ambient_light((1, 1, 1))
 
-    default_camera_mover(window, default_camera_pos)
-    default_camera_set(scene, default_camera_pos)
+    _default_camera_mover(window, default_camera_pos)
+    _default_camera_set(scene, default_camera_pos)
 
 
 def third_person_view(scene: ti.ui.Scene, norm_ratio, prev_pos, pos):
     scene.point_light((0, 0, 100), (1, 1, 1))
 
-    cat_camera(scene, norm_ratio, prev_pos, pos)
+    _cat_camera(scene, norm_ratio, prev_pos, pos)
     draw_bottom(scene)

@@ -1,4 +1,4 @@
-# implementation of this module was taken from https://docs.taichi-lang.org/blog/acclerate-collision-detection-with-taichi
+# implementation of this module based on https://docs.taichi-lang.org/blog/acclerate-collision-detection-with-taichi
 import time
 import numpy
 import taichi as ti
@@ -222,7 +222,7 @@ def compute_states(
 
 
 @ti.kernel
-def update_logs_kernel(
+def _update_logs_kernel(
     results: ti.types.ndarray(),
     new_state: ti.template(),
     prev_state: ti.template(),
@@ -239,7 +239,7 @@ def update_logs_kernel(
 
 def update_logs(logs):
     log_results.fill(0)
-    update_logs_kernel(
+    _update_logs_kernel(
         log_results, logs_new_state, logs_prev_state, logs_who_changed_id
     )
     np_log_results = log_results.to_numpy()
