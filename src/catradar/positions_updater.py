@@ -1,6 +1,7 @@
 import taichi as ti
 from math import pi
 
+from catradar.borders_processor import is_segment_intersect, get_rotated_vector
 from catradar.common import (
     MOVE_PATTERN_CAROUSEL,
     MOVE_PATTERN_COLLIDING,
@@ -129,101 +130,6 @@ def _update_pos_on_velocity(
             velocities[i].y *= -1
 
 
-@ti.func
-def _line_intersection(x1, y1, x2, y2, x3, y3, x4, y4) -> ti.math.vec2:
-    A1 = y2 - y1
-    B1 = x1 - x2
-    C1 = A1 * x1 + B1 * y1
-
-    A2 = y4 - y3
-    B2 = x3 - x4
-    C2 = A2 * x3 + B2 * y3
-
-    D = A1 * B2 - A2 * B1
-
-    res = ti.math.vec2(0.0, 0.0)
-    if D == 0:
-        res = ti.math.vec2(INF, INF)
-    else:
-        Dx = C1 * B2 - C2 * B1
-        Dy = A1 * C2 - A2 * C1
-
-        x = Dx / D
-        y = Dy / D
-        res = ti.math.vec2(x, y)
-
-    return res
-
-
-@ti.func
-def _point_in_rect(px, py, sx1, sy1, sx2, sy2) -> bool:
-    return ti.min(sx1, sx2) <= px <= ti.max(sx1, sx2) and ti.min(
-        sy1, sy2
-    ) <= py <= ti.max(sy1, sy2)
-
-
-@ti.func
-def _calc_angel(a: ti.math.vec2, b: ti.math.vec2) -> ti.f32:
-    dot = ti.math.dot(a, b)
-    u = ti.math.length(a)
-    v = ti.math.length(b)
-
-    res: ti.f32 = 0
-    if u == 0 or v == 0:
-        res = INF
-    else:
-        res = ti.math.acos(ti.max(ti.min(dot / (u * v), 1), -1))
-
-    return res
-
-
-@ti.func
-def _rotate_vector(v, alpha):
-    cos_a = ti.math.cos(alpha)
-    sin_a = ti.math.sin(alpha)
-
-    px_new = v.x * cos_a - v.y * sin_a
-    py_new = v.x * sin_a + v.y * cos_a
-
-    return ti.math.vec2(px_new, py_new)
-
-
-@ti.func
-def _process_point_in_segment(
-    point_id: ti.i32,
-    positions: ti.template(),
-    sx1: ti.f32,
-    sy1: ti.f32,
-    sx2: ti.f32,
-    sy2: ti.f32,
-    vel: ti.template(),
-):
-    px1 = last_positions[point_id].x
-    py1 = last_positions[point_id].y
-    px2 = positions[point_id].x
-    py2 = positions[point_id].y
-
-    inter = _line_intersection(px1, py1, px2, py2, sx1, sy1, sx2, sy2)
-    if inter.x != INF or inter.y != INF:
-        if _point_in_rect(inter.x, inter.y, px1, py1, px2, py2) and _point_in_rect(
-            inter.x, inter.y, sx1, sy1, sx2, sy2
-        ):
-            line = ti.math.vec2(sx1 - sx2, sy1 - sy2)
-            perp = ti.math.vec2(-line.y, line.x)
-            s1_p = ti.math.vec2(sx1 - px1, sy1 - py1)
-            if ti.math.dot(perp, s1_p) < 0:
-                perp = -perp
-
-            p_vec = ti.math.vec2(px2 - px1, py2 - py1)
-            angel: ti.f32 = _calc_angel(p_vec, perp)
-            if p_vec.x * perp.y - p_vec.y * perp.x < 0:
-                angel *= -1
-
-            vel *= -1
-            vel = _rotate_vector(vel, angel * 2)
-            positions[point_id] = last_positions[point_id]
-
-
 @ti.kernel
 def _check_borders(
     positions: ti.template(),
@@ -232,15 +138,20 @@ def _check_borders(
 ):
     for i in range(N):
         for j in range(borders_count):
-            _process_point_in_segment(
-                i,
-                positions,
-                borders[2 * j].x,
-                borders[2 * j].y,
-                borders[2 * j + 1].x,
-                borders[2 * j + 1].y,
-                velocities[i],
-            )
+            if is_segment_intersect(
+                last_positions[i],
+                positions[i],
+                ti.math.vec2(borders[2 * j].x, borders[2 * j].y),
+                ti.math.vec2(borders[2 * j + 1].x, borders[2 * j + 1].y),
+            ):
+                velocities[i] = get_rotated_vector(
+                    last_positions[i],
+                    positions[i],
+                    ti.math.vec2(borders[2 * j].x, borders[2 * j].y),
+                    ti.math.vec2(borders[2 * j + 1].x, borders[2 * j + 1].y),
+                    velocities[i],
+                )
+                positions[i] = last_positions[i]
 
 
 def update_positions(
