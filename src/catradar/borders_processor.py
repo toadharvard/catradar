@@ -3,39 +3,66 @@ import taichi as ti
 __all__ = ["is_segment_intersect", "get_rotated_vector"]
 
 INF: ti.f32 = 1e9
+EPS: ti.f32 = 1e-8
 
 
 @ti.func
-def _line_intersection(x1, y1, x2, y2, x3, y3, x4, y4) -> ti.math.vec2:
-    A1 = y2 - y1
-    B1 = x1 - x2
-    C1 = A1 * x1 + B1 * y1
+def _is_same_point(p1, p2):
+    return ti.abs(p1.x - p2.x) < EPS and ti.abs(p1.y - p2.y) < EPS
 
-    A2 = y4 - y3
-    B2 = x3 - x4
-    C2 = A2 * x3 + B2 * y3
 
-    D = A1 * B2 - A2 * B1
+@ti.func
+def _point_on_line(p, p1, p2):
+    return ti.abs((p2.x - p1.x) * (p.y - p1.y) - (p2.y - p1.y) * (p.x - p1.x)) < EPS
 
-    res = ti.math.vec2(0.0, 0.0)
-    if D == 0:
-        res = ti.math.vec2(INF, INF)
+
+@ti.func
+def _line_intersection(p1, p2, p3, p4) -> ti.math.vec2:
+    res = ti.math.vec2(INF, INF)
+
+    first_degenerate = _is_same_point(p1, p2)
+    second_degenerate = _is_same_point(p3, p4)
+    if first_degenerate and second_degenerate:
+        if _is_same_point(p1, p3):
+            res = p1
+    elif first_degenerate:
+        if _point_on_line(p1, p3, p4):
+            res = p1
+    elif second_degenerate:
+        if _point_on_line(p3, p1, p2):
+            res = p3
     else:
-        Dx = C1 * B2 - C2 * B1
-        Dy = A1 * C2 - A2 * C1
+        x1, y1 = p1.x, p1.y
+        x2, y2 = p2.x, p2.y
+        x3, y3 = p3.x, p3.y
+        x4, y4 = p4.x, p4.y
 
-        x = Dx / D
-        y = Dy / D
-        res = ti.math.vec2(x, y)
-
+        d1x, d1y = (x2 - x1), (y2 - y1)
+        d2x, d2y = (x4 - x3), (y4 - y3)
+        cross_d1_d2 = ti.math.cross(ti.math.vec2(d1x, d1y), ti.math.vec2(d2x, d2y))
+        if ti.abs(cross_d1_d2) > EPS:
+            cross_p13_d2 = ti.math.cross(
+                ti.math.vec2(x3 - x1, y3 - y1), ti.math.vec2(d2x, d2y)
+            )
+            t = cross_p13_d2 / cross_d1_d2
+            ix = x1 + t * d1x
+            iy = y1 + t * d1y
+            res = ti.math.vec2(ix, iy)
+        else:
+            cross_p13_d1 = ti.math.cross(
+                ti.math.vec2(d1x, d1y), ti.math.vec2(x3 - x1, y3 - y1)
+            )
+            if ti.abs(cross_p13_d1) < EPS:
+                res = ti.math.vec2(x3, y3)
     return res
 
 
 @ti.func
-def _point_in_rect(px, py, sx1, sy1, sx2, sy2) -> bool:
-    return ti.min(sx1, sx2) <= px <= ti.max(sx1, sx2) and ti.min(
-        sy1, sy2
-    ) <= py <= ti.max(sy1, sy2)
+def _point_in_rect(p, r1, r2) -> bool:
+    return (
+        ti.min(r1.x, r2.x) - EPS <= p.x <= ti.max(r1.x, r2.x) + EPS
+        and ti.min(r1.y, r2.y) - EPS <= p.y <= ti.max(r1.y, r2.y) + EPS
+    )
 
 
 @ti.func
@@ -72,13 +99,11 @@ def is_segment_intersect(
     seg21: ti.math.vec2,
     seg22: ti.math.vec2,
 ) -> bool:
-    inter = _line_intersection(
-        seg11.x, seg11.y, seg12.x, seg12.y, seg21.x, seg21.y, seg22.x, seg22.y
-    )
+    inter = _line_intersection(seg11, seg12, seg21, seg22)
     return (
         (inter.x != INF or inter.y != INF)
-        and _point_in_rect(inter.x, inter.y, seg11.x, seg11.y, seg12.x, seg12.y)
-        and _point_in_rect(inter.x, inter.y, seg21.x, seg21.y, seg22.x, seg22.y)
+        and _point_in_rect(inter, seg11, seg12)
+        and _point_in_rect(inter, seg21, seg22)
     )
 
 
