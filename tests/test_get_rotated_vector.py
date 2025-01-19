@@ -9,11 +9,11 @@ EPS = 1e-3
 # Need this wrapper because we can not call `ti.func` out of taichi scope
 @ti.kernel
 def _get_rotated_vector_kernel(
-        last_pos: ti.math.vec2,
-        new_pos: ti.math.vec2,
-        border1: ti.math.vec2,
-        border2: ti.math.vec2,
-        to_rotate: ti.math.vec2,
+    last_pos: ti.math.vec2,
+    new_pos: ti.math.vec2,
+    border1: ti.math.vec2,
+    border2: ti.math.vec2,
+    to_rotate: ti.math.vec2,
 ) -> ti.math.vec2:
     return get_rotated_vector(last_pos, new_pos, border1, border2, to_rotate)
 
@@ -27,7 +27,7 @@ def _get_rotated_vector_kernel(
             ti.math.vec2(-100, 0),
             ti.math.vec2(100, 0),
             ti.math.vec2(0, -2),
-            ti.math.vec2(0, 2)
+            ti.math.vec2(0, 2),
         ),
         pytest.param(
             ti.math.vec2(5, 6),
@@ -104,18 +104,18 @@ def _get_rotated_vector_kernel(
     ],
 )
 def test_get_rotated_vector(
-        last_pos: ti.math.vec2,
-        new_pos: ti.math.vec2,
-        border1: ti.math.vec2,
-        border2: ti.math.vec2,
-        to_rotate: ti.math.vec2,
-        expected_vec: ti.math.vec2,
+    last_pos: ti.math.vec2,
+    new_pos: ti.math.vec2,
+    border1: ti.math.vec2,
+    border2: ti.math.vec2,
+    to_rotate: ti.math.vec2,
+    expected_vec: ti.math.vec2,
 ):
     actual_vec = _get_rotated_vector_kernel(
         last_pos, new_pos, border1, border2, to_rotate
     )
     print(actual_vec)
     assert (
-            ti.abs(actual_vec.x - expected_vec.x) < EPS
-            and ti.abs(actual_vec.y - expected_vec.y) < EPS
+        ti.abs(actual_vec.x - expected_vec.x) < EPS
+        and ti.abs(actual_vec.y - expected_vec.y) < EPS
     )

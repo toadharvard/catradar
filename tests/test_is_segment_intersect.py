@@ -1,7 +1,7 @@
 import pytest
 import taichi as ti
 
-from catradar.borders_processor import is_segment_intersect, get_rotated_vector
+from catradar.borders_processor import is_segment_intersect
 
 
 # Need this wrapper because we can not call `ti.func` out of taichi scope
