@@ -114,7 +114,6 @@ def test_get_rotated_vector(
     actual_vec = _get_rotated_vector_kernel(
         last_pos, new_pos, border1, border2, to_rotate
     )
-    print(actual_vec)
     assert (
         ti.abs(actual_vec.x - expected_vec.x) < EPS
         and ti.abs(actual_vec.y - expected_vec.y) < EPS
