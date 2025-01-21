@@ -44,11 +44,9 @@ def test_positions_updater(
     for index, pos in enumerate(init_pos):
         positions[index] = ti.Vector([pos[0], pos[1]])
 
-    velocities = ti.Vector.field(2, dtype=ti.f32, shape=N)
     for index, vel in enumerate(velocities_list):
-        velocities[index] = ti.Vector([vel[0], vel[1]])
+        positions_updater.velocities[index] = ti.Vector([vel[0], vel[1]])
 
-    positions_updater.velocities = velocities
     positions_updater.update_pos_on_velocity(positions, speed_mult, mock_dt)
 
     for i in range(N):
