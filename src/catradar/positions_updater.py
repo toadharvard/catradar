@@ -9,13 +9,14 @@ from catradar.common import (
 
 __all__ = ["setup_positions_data", "initialize_positions", "update_positions"]
 
-# movement pattern 1 global vars
+# Data for movement pattern "CAROUSEL"
 p1_speeds = NotImplemented
 p1_angles = NotImplemented
 
-# movement pattern 2 global vars
+# Data for movement pattern "COLLIDING"
 p2_resistance = 0.05
 
+# The speed of cats in the format of a two-dimensional vector
 velocities = NotImplemented
 
 X: ti.f32
@@ -24,6 +25,9 @@ N: ti.i32
 
 
 def setup_positions_data(aX, aY, aN):
+    """
+    Setup grid parameters and allocates space for positions-related data.
+    """
     global X, Y, N
     X = aX
     Y = aY
@@ -37,14 +41,22 @@ def setup_positions_data(aX, aY, aN):
 
 @ti.func
 def initialize_data_for_pos_updaters():
+    """
+    Initializes speed and angle for each cat with random values.
+    """
     for i in range(N):
         p1_speeds[i] = ti.random() * 2 + 2
         p1_angles[i] = ti.random() * 2 * pi
 
 
-# Random initialization of positions and velocities
 @ti.kernel
 def initialize_positions(positions: ti.template(), opt: ti.i32):
+    """
+    Randomly sets initial positions and velocities based on the chosen preset.
+
+    :param positions: Taichi vector field for cats positions
+    :param opt: Preset option (0 or 1). 0 - randomly evenly throughout the field, 1 - All the cats are in the left corner.
+    """
     initialize_data_for_pos_updaters()
     for i in range(N):
         if opt == 0:
@@ -59,11 +71,18 @@ def initialize_positions(positions: ti.template(), opt: ti.i32):
 
 @ti.kernel
 def movement_patter_free():
+    """
+    Does not apply any pattern, moving in a straight line without handling collisions.
+    """
     pass
 
 
 @ti.kernel
 def movement_pattern_carousel():
+    """
+    Applies a carousel-like movement pattern by incrementing angles and setting each cat's velocity.
+    Collisions are not handled.
+    """
     for i in range(N):
         p1_angles[i] += 0.05
         if p1_angles[i] >= 2 * pi:
@@ -74,6 +93,10 @@ def movement_pattern_carousel():
 
 @ti.kernel
 def movement_pattern_colliding(positions: ti.template(), intersections: ti.template()):
+    """
+    Updates velocities by applying a resistance if speed is high and a repelling
+    force from each intersecting neighbor.
+    """
     for i in range(N):
         self_pos = positions[i]
         force = ti.math.vec2(0.0, 0.0)
@@ -92,6 +115,10 @@ def movement_pattern_colliding(positions: ti.template(), intersections: ti.templ
 
 @ti.kernel
 def cursor_push(positions: ti.template(), cursor_pos: ti.math.vec2):
+    """
+    Applies a repulsive force on cats within 100 of the cursor,
+    pushing them away based on inverse-square distance.
+    """
     for i in range(N):
         vec_cursor_to_self = positions[i] - cursor_pos
         cursor_dist = vec_cursor_to_self.norm()
@@ -105,6 +132,9 @@ def update_pos_on_velocity(
     speed_mult: ti.f32,
     dt: ti.f32,
 ):
+    """
+    Updates cats positions based on their velocities and checks that the cats have not left the map.
+    """
     for i in range(N):
         positions[i] += speed_mult * velocities[i] * dt * 60
         # Boundary conditions
@@ -131,6 +161,18 @@ def update_positions(
     opt: ti.i32,
     dt: ti.f32,
 ):
+    """
+    Updates particle positions based on movement patterns, cursor interaction, and velocities.
+
+    Args:
+        positions: positions of cats.
+        intersections: detected cats intersections (for colliding pattern).
+        cursor_pos: Position of the user click.
+        cursor_push_on: Flag to enable or disable pushing cats by cursor.
+        speed_mult: Multiplier for cats speeds.
+        opt: Movement pattern option (free, carousel, colliding).
+        dt: Time step for the update.
+    """
     if opt == MOVE_PATTERN_FREE:
         movement_patter_free()
     if opt == MOVE_PATTERN_CAROUSEL:
