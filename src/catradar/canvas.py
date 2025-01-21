@@ -29,6 +29,9 @@ __all__ = [
 def setup_data_for_scene(
     aX: ti.f32, aY: ti.f32, aN: ti.i32, aR0: ti.f32, norm_ratio: ti.f32
 ):
+    """
+    Setup grid parameters and allocates space for scene-related data.
+    """
     global N, R0
     N = aN
     R0 = aR0
@@ -73,6 +76,9 @@ def fill_vertices(X: ti.f32, Y: ti.f32, R: ti.f32):
 
 
 def draw_borders(scene: ti.ui.Scene):
+    """
+    Render borders in the scene.
+    """
     scene.lines(vertices=border_vertices, indices=border_indices, width=2)
 
 
@@ -85,6 +91,17 @@ def draw_circles(
     norm_ratio,
     window_size: tuple,
 ):
+    """
+    Render circles representing cats in the scene.
+
+    :param scene: The Taichi UI scene to render to.
+    :param positions: 2D-vector positions of the cats.
+    :param states: Current states of the cats.
+    :param logged_id: ID of the cat to highlight.
+    :param render_rate: Percentage of cats to render.
+    :param norm_ratio: Normalization factor for scaling positions.
+    :param window_size: Size of the app window (width, height).
+    """
     if render_rate == 0:  # Do not render at all
         return
     trace(
