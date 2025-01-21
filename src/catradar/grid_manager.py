@@ -1,4 +1,4 @@
-# implementation of this module was taken from https://docs.taichi-lang.org/blog/acclerate-collision-detection-with-taichi
+# Implementation based on https://docs.taichi-lang.org/blog/acclerate-collision-detection-with-taichi
 import taichi as ti
 
 __all__ = [
@@ -24,13 +24,14 @@ Y: ti.f32
 N: ti.i32
 R0: ti.f32
 R1: ti.f32
-LIMIT_PER_CELL: ti.i32
+LIMIT_PER_CELL: ti.i32  # limit of cats for each cell
 grid_cell_size: ti.i32  # the length and height of each grid cell (cells are squares)
 cell_count_x = ti.i32  # count of cells by X coordinate
 cell_count_y = ti.i32  # count of cells by Y coordinate
 INTERSECTION_NUM: ti.i32
-MODE: ti.i32
+MODE: ti.i32  # program running mode (see common.py)
 
+# Data for grid algo
 circles_per_cell = NotImplemented  # count of circles per cell of grid
 column_sum = NotImplemented  # prefix sums for each column of circles_per_cell
 prefix_sum = NotImplemented  # prefix sums for circles_per_cell
@@ -39,6 +40,7 @@ list_cur = NotImplemented
 list_tail = NotImplemented
 circles_id = NotImplemented
 
+# Data for updating logs
 logs_new_state = ti.field(ti.i32, shape=())
 logs_prev_state = ti.field(ti.i32, shape=())
 logs_who_changed_id = ti.field(ti.i32, shape=())
@@ -54,6 +56,9 @@ def setup_grid_data(
     aINTERSECTION_NUM: ti.i32,
     aMODE: ti.i32,
 ):
+    """
+    Setup grid parameters and allocates space for grid-related data.
+    """
     global X, Y, N, R0, R1, LIMIT_PER_CELL, INTERSECTION_NUM, MODE
     X = aX
     Y = aY
@@ -92,6 +97,14 @@ def _calc_dist(
     pos_j: ti.types.vector(2, dtype=float),
     norm_func: ti.i32,
 ) -> ti.f32:
+    """
+    Calculates the distance between two 2D points using the specified norm function.
+
+    :param pos_i: The position of the first point (x, y).
+    :param pos_j: The position of the second point  (x, y).
+    :param norm_func: The norm function to use for distance calculation:
+    :return: distance between `pos_i` and `pos_j`.
+    """
     res = 0.0
     if norm_func == EUCLIDEAN_NORM:
         res = (pos_i - pos_j).norm()
@@ -111,6 +124,17 @@ def compute_states(
     norm_func: ti.i32,
     logged_id: ti.i32,
 ):
+    """
+    Compute the states of cats based on their positions and interactions within a grid.
+
+    :param positions: 2D-vector positions of cats.
+    :param states: vector to storing states of each cat.
+    :param intersections: vector for recording cat intersections.
+    :param update_intersections: Whether to update the intersections vector (0 or 1).
+    :param norm_func: norm function for distance calculation.
+    :param logged_id: ID of the cat to log state changes.
+    """
+
     # Compute count of circles per cell
     circles_per_cell.fill(0)
     for i in range(N):
@@ -214,6 +238,12 @@ def compute_states(
 
 
 def update_logs(logged_id, logs):
+    """
+    Update logs with state change details for a specific cat.
+
+    :param logged_id: ID of the cat whose state changes are being logged.
+    :param logs: List to append log messages.
+    """
     if logs_new_state[None] == logs_prev_state[None]:
         return
     if logs_who_changed_id[None] == -1:

@@ -207,7 +207,7 @@ def main():
     prev_update_time = time.time()
 
     while window.running:
-        speed = 0.01 * camera_pos[2] # Camera movement speed
+        speed = 0.01 * camera_pos[2]  # Camera movement speed
 
         if window.is_pressed("q"):
             # Moving the camera forward

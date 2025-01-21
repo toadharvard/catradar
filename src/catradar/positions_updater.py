@@ -164,14 +164,13 @@ def update_positions(
     """
     Updates particle positions based on movement patterns, cursor interaction, and velocities.
 
-    Args:
-        positions: positions of cats.
-        intersections: detected cats intersections (for colliding pattern).
-        cursor_pos: Position of the user click.
-        cursor_push_on: Flag to enable or disable pushing cats by cursor.
-        speed_mult: Multiplier for cats speeds.
-        opt: Movement pattern option (free, carousel, colliding).
-        dt: Time step for the update.
+    :param positions: positions of cats.
+    :param intersections: detected cats intersections (for colliding pattern).
+    :param cursor_pos: Position of the user click.
+    :param cursor_push_on: Flag to enable or disable pushing cats by cursor.
+    :param speed_mult: Multiplier for cats speeds.
+    :param opt: Movement pattern option (free, carousel, colliding).
+    :param dt: The time interval that has elapsed since the last start of the function, or 0 if it is the first start
     """
     if opt == MOVE_PATTERN_FREE:
         movement_patter_free()
