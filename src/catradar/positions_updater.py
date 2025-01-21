@@ -1,6 +1,7 @@
 import taichi as ti
 from math import pi
 
+from catradar.borders_processor import is_segment_intersect, get_rotated_vector
 from catradar.common import (
     MOVE_PATTERN_CAROUSEL,
     MOVE_PATTERN_COLLIDING,
@@ -17,10 +18,12 @@ p1_angles = NotImplemented
 p2_resistance = 0.05
 
 velocities = NotImplemented
+last_positions = NotImplemented
 
 X: ti.f32
 Y: ti.f32
 N: ti.i32
+INF: ti.f32 = 1e9
 
 
 def setup_positions_data(aX, aY, aN):
@@ -29,14 +32,15 @@ def setup_positions_data(aX, aY, aN):
     Y = aY
     N = aN
 
-    global velocities, p1_angles, p1_speeds
+    global velocities, p1_angles, p1_speeds, last_positions
     velocities = ti.Vector.field(2, dtype=ti.f32, shape=N)
+    last_positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
     p1_angles = ti.field(dtype=ti.f32, shape=N)
     p1_speeds = ti.field(dtype=ti.f32, shape=N)
 
 
 @ti.func
-def initialize_data_for_pos_updaters():
+def _initialize_data_for_pos_updaters():
     for i in range(N):
         p1_speeds[i] = ti.random() * 2 + 2
         p1_angles[i] = ti.random() * 2 * pi
@@ -45,7 +49,7 @@ def initialize_data_for_pos_updaters():
 # Random initialization of positions and velocities
 @ti.kernel
 def initialize_positions(positions: ti.template(), opt: ti.i32):
-    initialize_data_for_pos_updaters()
+    _initialize_data_for_pos_updaters()
     for i in range(N):
         if opt == 0:
             positions[i] = ti.Vector([ti.random() * X, ti.random() * Y])
@@ -56,14 +60,17 @@ def initialize_positions(positions: ti.template(), opt: ti.i32):
             positions[i] = ti.Vector([50 + ti.random() * 10, 50 + ti.random()])
             velocities[i] = ti.Vector([10 + ti.random(), 10 + ti.random()]) * 0.5
 
+        last_positions[i].x = positions[i].x
+        last_positions[i].y = positions[i].y
+
 
 @ti.kernel
-def movement_patter_free():
+def _movement_patter_free():
     pass
 
 
 @ti.kernel
-def movement_pattern_carousel():
+def _movement_pattern_carousel():
     for i in range(N):
         p1_angles[i] += 0.05
         if p1_angles[i] >= 2 * pi:
@@ -73,7 +80,7 @@ def movement_pattern_carousel():
 
 
 @ti.kernel
-def movement_pattern_colliding(positions: ti.template(), intersections: ti.template()):
+def _movement_pattern_colliding(positions: ti.template(), intersections: ti.template()):
     for i in range(N):
         self_pos = positions[i]
         force = ti.math.vec2(0.0, 0.0)
@@ -91,7 +98,7 @@ def movement_pattern_colliding(positions: ti.template(), intersections: ti.templ
 
 
 @ti.kernel
-def cursor_push(positions: ti.template(), cursor_pos: ti.math.vec2):
+def _cursor_push(positions: ti.template(), cursor_pos: ti.math.vec2):
     for i in range(N):
         vec_cursor_to_self = positions[i] - cursor_pos
         cursor_dist = vec_cursor_to_self.norm()
@@ -100,12 +107,13 @@ def cursor_push(positions: ti.template(), cursor_pos: ti.math.vec2):
 
 
 @ti.kernel
-def update_pos_on_velocity(
+def _update_pos_on_velocity(
     positions: ti.template(),
     speed_mult: ti.f32,
     dt: ti.f32,
 ):
     for i in range(N):
+        last_positions[i] = positions[i]
         positions[i] += speed_mult * velocities[i] * dt * 60
         # Boundary conditions
         if positions[i].x < 0:
@@ -122,8 +130,34 @@ def update_pos_on_velocity(
             velocities[i].y *= -1
 
 
+@ti.kernel
+def _check_borders(
+    positions: ti.template(),
+    borders_count: ti.i32,
+    borders: ti.template(),
+):
+    for i in range(N):
+        for j in range(borders_count):
+            if is_segment_intersect(
+                last_positions[i],
+                positions[i],
+                ti.math.vec2(borders[2 * j].x, borders[2 * j].y),
+                ti.math.vec2(borders[2 * j + 1].x, borders[2 * j + 1].y),
+            ):
+                velocities[i] = get_rotated_vector(
+                    last_positions[i],
+                    positions[i],
+                    ti.math.vec2(borders[2 * j].x, borders[2 * j].y),
+                    ti.math.vec2(borders[2 * j + 1].x, borders[2 * j + 1].y),
+                    velocities[i],
+                )
+                positions[i] = last_positions[i]
+
+
 def update_positions(
     positions,
+    borders,
+    borders_count,
     intersections,
     cursor_pos: ti.math.vec2,
     cursor_push_on: ti.i8,
@@ -132,13 +166,15 @@ def update_positions(
     dt: ti.f32,
 ):
     if opt == MOVE_PATTERN_FREE:
-        movement_patter_free()
+        _movement_patter_free()
     if opt == MOVE_PATTERN_CAROUSEL:
-        movement_pattern_carousel()
+        _movement_pattern_carousel()
     if opt == MOVE_PATTERN_COLLIDING:
-        movement_pattern_colliding(positions, intersections)
+        _movement_pattern_colliding(positions, intersections)
 
     if cursor_push_on:
-        cursor_push(positions, cursor_pos)
+        _cursor_push(positions, cursor_pos)
 
-    update_pos_on_velocity(positions, speed_mult, dt)
+    _update_pos_on_velocity(positions, speed_mult, dt)
+
+    _check_borders(positions, borders_count // 2, borders)

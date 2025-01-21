@@ -90,7 +90,6 @@ def test_compute_states(
         dtype=ti.i32,
         shape=(N, INTERSECTION_NUM + 1),
     )
-    logged_id_mock = 0
 
     wrong_count = 0
     for init_opt in range(2):
@@ -104,7 +103,6 @@ def test_compute_states(
                 intersections_mock,
                 update_intersections,
                 norm_func,
-                logged_id_mock,
             )
 
             for i in range(N):
