@@ -18,17 +18,22 @@ from catradar.grid_manager import compute_states, setup_grid_data, update_logs
 # Grid parameters
 X: ti.f32 = 1000
 Y: ti.f32 = 1000
-N: ti.i32 = 500
-R0: ti.f32 = 5.0
-R1: ti.f32 = 20.0
+N: ti.i32 = 500  # Count of cats
+R0: ti.f32 = 5.0  # The distance at which cats enter the INTERACT state
+R1: ti.f32 = 20.0  # The distance at which cats enter the INTERSECTION state
+
+# Limit of cats per cell for grid algorithm.
+# User can't change it, this value was obtained by running tests several times with different limits
 LIMIT_PER_CELL: ti.i32 = 100
-# Other "soft" parameters
-init_opt: ti.i32 = 0
-update_opt: ti.i32 = 0
-cursor_push_on: ti.i8 = 0
-speed_mult: ti.f32 = 1
-render_rate: ti.i32 = 100
-norm_func: ti.i32 = 0
+
+# Other "soft" parameters. "Soft" means that changing these parameters does not require rebuilding the grid
+init_opt: ti.i32 = 0  # Option for positions initializer
+movement_pattern: ti.i32 = 0
+cursor_push_on: ti.i8 = 0  # Flag that indicates that user enable "cursor push"
+speed_mult: ti.f32 = 1  # Speed modifier
+render_rate: ti.i32 = 100  # Percentage of rendering cats
+norm_func: ti.i32 = 0  # Function for calculating distance
+
 # Logging
 show_logs = True
 print_logs = True
@@ -36,20 +41,17 @@ logged_id: ti.i32 = 0
 logs = []
 current_page = 0
 per_page = 50
-# Borders (UI)
-show_borders = True
 
-# Get resolution of user screen
-root = tk.Tk()
-root.withdraw()
-init_resol_x = root.winfo_screenwidth()
-init_resol_y = root.winfo_screenheight()
-root.destroy()
+# Other UI settings
+show_borders = True
+allow_large_n = False
+
+# The coefficient needed to convert the coordinates of the field to coordinates for the UI
 NORM_RATIO = 1000
 
 # Shared between modules memory
-positions = NotImplemented  # Positions of circles
-states = NotImplemented  # States of circles
+positions = NotImplemented  # Positions of cats
+states = NotImplemented  # States of cats
 
 # Data structure for first INTERSECTION_NUM intersections
 INTERSECTION_NUM = 10
@@ -63,11 +65,20 @@ settings_buffer = {
     "R1": R1,
     "init_opt": init_opt,
 }
-allow_large_n = False
 
 
 def draw_ui(gui: ti.ui.Gui):
-    global render_rate, init_opt, update_opt, cursor_push_on, speed_mult, norm_func
+    """
+    Draws the UI controls for parameters like area size, cats count, movement pattern, cats speed and logging.
+    This lets users configure and reset the simulation.
+    """
+    global \
+        render_rate, \
+        init_opt, \
+        movement_pattern, \
+        cursor_push_on, \
+        speed_mult, \
+        norm_func
     global allow_large_n, logged_id, current_page
     LEFT_BORDER = 0.3
     with gui.sub_window("Simulation parameters", 0, 0, LEFT_BORDER, 0.22) as w:
@@ -96,7 +107,7 @@ def draw_ui(gui: ti.ui.Gui):
         render_rate = w.slider_int("Render rate", render_rate, 0, 100)
         speed_mult = w.slider_float("Speed", speed_mult, 0.0, 5.0)
         w.text("0 - Free movement, 1 - Carousel, 2 - Colliding")
-        update_opt = w.slider_int("Movement pattern", update_opt, 0, 2)
+        movement_pattern = w.slider_int("Movement pattern", movement_pattern, 0, 2)
         w.text("0 - Euclidean, 1 - Manhattan, 2 - Max")
         norm_func = w.slider_int("Distance function preset", norm_func, 0, 2)
         cursor_push_on = w.checkbox("Allow cursor push", cursor_push_on)
@@ -123,7 +134,9 @@ def draw_ui(gui: ti.ui.Gui):
 
 
 def setup_all_data():
-    # data shared between all modules
+    """
+    Initializes shared between modules data (positions, states, intersections) and calls setup routines for each.
+    """
     global positions, states
     positions = ti.Vector.field(2, dtype=ti.f32, shape=N)
     states = ti.field(dtype=ti.i32, shape=N)
@@ -139,6 +152,9 @@ def setup_all_data():
 
 
 def reset_grid():
+    """
+    Resets simulation parameters from settings_buffer and re-initializes all data.
+    """
     global X, Y, N, R0, R1, init_opt
     X = settings_buffer["X"]
     Y = settings_buffer["Y"]
@@ -150,10 +166,18 @@ def reset_grid():
     setup_all_data()
 
 
+# Taichi field for storing last position of cursor (it is updated when user clicks on area)
 cursor_pos_field = ti.Vector.field(2, dtype=ti.f32, shape=1)
 
 
 def main():
+    # Getting resolution of user screen
+    root = tk.Tk()
+    root.withdraw()
+    init_resol_x = root.winfo_screenwidth()
+    init_resol_y = root.winfo_screenheight()
+    root.destroy()
+
     window = ti.ui.Window(
         "Catradar: cat interaction simulation",
         res=(init_resol_x, init_resol_y),
@@ -164,11 +188,11 @@ def main():
     scene = window.get_scene()
     camera = ti.ui.make_camera()
 
-    # Изначальная позиция камеры
+    # Initial camera position
     camera_pos = np.array([0.3, 0.5, 1.5])
-    # Камера изначально "смотрит" по оси Z
+    # The camera initially "looks" along the Z axis
     camera_dir = np.array([0.0, 0.0, -1.0])
-    # Вектор "вверх"
+    # The "up" vector
     up_vector = np.array([0.0, 1.0, 0.0])
     right_vector = np.cross(up_vector, camera_dir)
     right_vector = right_vector / np.linalg.norm(right_vector)
@@ -183,31 +207,31 @@ def main():
     prev_update_time = time.time()
 
     while window.running:
-        speed = 0.01 * camera_pos[2]  # Скорость перемещения камеры
+        speed = 0.01 * camera_pos[2] # Camera movement speed
 
         if window.is_pressed("q"):
-            # Перемещаем камеру вперед
+            # Moving the camera forward
             camera_pos += camera_dir * speed
         if window.is_pressed("e"):
-            # Перемещаем камеру назад
+            # Moving the camera back
             camera_pos -= camera_dir * speed
 
         if window.is_pressed("a"):
-            # Перемещаем камеру влево
+            # Moving the camera to the left
             camera_pos += right_vector * speed
         if window.is_pressed("d"):
-            # Перемещаем камеру вправо
+            # Moving the camera to the right
             camera_pos -= right_vector * speed
 
         if window.is_pressed("w"):
-            # Перемещаем камеру вверх
+            # Moving the camera up
             camera_pos += up_vector * speed
         if window.is_pressed("s"):
-            # Перемещаем камеру вниз
+            # Moving the camera down
             camera_pos -= up_vector * speed
         camera_pos[2] = max(camera_pos[2], 0.2)
 
-        # Устанавливаем новую позицию камеры
+        # Setting a new camera position
         camera.position(camera_pos[0], camera_pos[1], camera_pos[2])
         camera.lookat(
             camera_pos[0] + camera_dir[0],
@@ -218,12 +242,11 @@ def main():
         scene.set_camera(camera)
 
         cursor_board_pos = ti.math.vec2(-1000, -1000)
-        # cursor info
+        # Cursor info
         if window.is_pressed(ti.GUI.LMB):
             ws = window.get_window_shape()
             cursor_pos = window.get_cursor_pos()
             zoom = 1.2 / camera_pos[2]
-            # i really don't know how but it work
             cursor_board_pos[0] = (
                 ws[0]
                 * (cursor_pos[0] + (camera_pos[0] * zoom * (ws[1] / ws[0]) - 0.5))
@@ -233,7 +256,6 @@ def main():
                 ws[1] * (cursor_pos[1] + camera_pos[1] * zoom - 0.5) / zoom
             )
             cursor_board_pos *= NORM_RATIO / ws[1]
-            # gui.text(f"cursor {cursor_board_pos[0]} {cursor_board_pos[1]}")
 
         new_update_time = time.time()
         trace(
@@ -243,7 +265,7 @@ def main():
                 cursor_board_pos,
                 cursor_push_on,
                 speed_mult,
-                update_opt,
+                movement_pattern,
                 new_update_time - prev_update_time,
             ),
             "update_positions",
@@ -255,7 +277,7 @@ def main():
                 positions,
                 states,
                 intersections,
-                update_opt == 2,
+                movement_pattern == 2,
                 norm_func,
                 logged_id if (show_logs and print_logs) else -1,
             ),
