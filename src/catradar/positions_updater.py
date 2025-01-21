@@ -38,7 +38,7 @@ def setup_positions_data(aX, aY, aN):
 @ti.func
 def initialize_data_for_pos_updaters():
     for i in range(N):
-        p1_speeds[i] = 3 + (ti.random() * 2 - 1.0) * 1
+        p1_speeds[i] = ti.random() * 2 + 2
         p1_angles[i] = ti.random() * 2 * pi
 
 
