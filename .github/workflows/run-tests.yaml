@@ -11,7 +11,15 @@ concurrency:
 jobs:
   tests:
     name: Run tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
     steps:
       - name: Set up Git repository
         uses: actions/checkout@v4
